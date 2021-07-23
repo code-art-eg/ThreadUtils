@@ -3,5 +3,15 @@
 		<TargetFramework>netstandard2.0</TargetFramework>
 		<Nullable>enable</Nullable>
 		<LangVersion>9.0</LangVersion>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<Authors>Sherif Elmetainy</Authors>
+		<Company>Code Art Egypt</Company>
+		<Description>A library containing thread coordination primitives (AsyncLock and AsyncReaderWriterLock) that can be use with .NET/C# Async/Await.</Description>
+		<Copyright>Copyright (c) 2021 Code Art Egypt.</Copyright>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageProjectUrl>https://github.com/code-art-eg/ThreadUtils</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/code-art-eg/ThreadUtils</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageTags>Async primitives</PackageTags>
 	</PropertyGroup>
 </Project>
