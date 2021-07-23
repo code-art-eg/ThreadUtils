@@ -10,7 +10,7 @@ namespace CodeArt.ThreadUtils
     ///     Based on: 
     ///     https://devblogs.microsoft.com/pfxteam/building-async-coordination-primitives-part-7-asyncreaderwriterlock/
     /// </summary>
-    public class AsyncReaderWriterLock
+    public sealed class AsyncReaderWriterLock
     {
         /// <summary>
         ///     reader lock releaser
@@ -25,7 +25,7 @@ namespace CodeArt.ThreadUtils
         /// <summary>
         ///     queue of waiting writers
         /// </summary>
-        private readonly Queue<TaskCompletionSource<IDisposable>> _waitingWriters = new();
+        private readonly Queue<object> _waitingWriters = new();
 
         /// <summary>
         ///     writer lock releaser
@@ -41,11 +41,6 @@ namespace CodeArt.ThreadUtils
         ///     number readers waiting
         /// </summary>
         private int _readersWaiting;
-
-        /// <summary>
-        /// Number of writers waiting using WriterLock (synchronous)
-        /// </summary>
-        private int _syncWritersWaiting;
 
         /// <summary>
         ///     status. O means no one has the lock. -1 a writer has the lock, +ve is the number of readers having the lock.
@@ -76,7 +71,7 @@ namespace CodeArt.ThreadUtils
         {
             lock (_waitingWriters)
             {
-                while(_status < 0 || _waitingWriters.Count != 0 || _syncWritersWaiting != 0)
+                while(_status < 0 || _waitingWriters.Count != 0)
                 {
                     Monitor.Wait(_waitingWriters);
                 }
@@ -94,7 +89,7 @@ namespace CodeArt.ThreadUtils
             lock (_waitingWriters)
             {
                 if (_status >= 0
-                    && _waitingWriters.Count == 0 && _syncWritersWaiting == 0)
+                    && _waitingWriters.Count == 0)
                 {
                     ++_status;
                     return _readerReleaserTask;
@@ -110,15 +105,20 @@ namespace CodeArt.ThreadUtils
         /// <returns>a releaser that releases the lock.</returns>
         public IDisposable WriterLock()
         {
+            ReleaserDisposable newReleaser;
             lock (_waitingWriters)
             {
-                ++_syncWritersWaiting;
-                while (_status != 0)
+                if (_status == 0)
                 {
-                    Monitor.Wait(_waitingWriters);
+                    _status = -1;
+                    return _writerReleaser;
                 }
-                --_syncWritersWaiting;
-                _status = -1;
+                newReleaser = new ReleaserDisposable(this, true);
+                _waitingWriters.Enqueue(newReleaser);
+            }
+            lock(newReleaser)
+            {
+                Monitor.Wait(newReleaser);
             }
             return _writerReleaser;
         }
@@ -147,7 +147,7 @@ namespace CodeArt.ThreadUtils
         /// </summary>
         private void ReaderRelease()
         {
-            TaskCompletionSource<IDisposable>? toWake = null;
+            object? toWake = null;
 
             lock (_waitingWriters)
             {
@@ -158,15 +158,18 @@ namespace CodeArt.ThreadUtils
                     _status = -1;
                     toWake = _waitingWriters.Dequeue();
                 }
-                else if (_syncWritersWaiting > 0)
-                {
-                    Monitor.PulseAll(_waitingWriters);
-                }
             }
 
-            if (toWake != null)
+            if (toWake is TaskCompletionSource<IDisposable> tcs)
             {
-                toWake.SetResult(new ReleaserDisposable(this, true));
+                tcs.SetResult(_writerReleaser);
+            }
+            else if (toWake is ReleaserDisposable disp)
+            {
+                lock(disp)
+                {
+                    Monitor.Pulse(disp);
+                }
             }
         }
 
@@ -175,7 +178,7 @@ namespace CodeArt.ThreadUtils
         /// </summary>
         private void WriterRelease()
         {
-            TaskCompletionSource<IDisposable>? toWake = null;
+            object? toWake = null;
             var releaser = _readerReleaser;
 
             lock (_waitingWriters)
@@ -184,11 +187,6 @@ namespace CodeArt.ThreadUtils
                 {
                     toWake = _waitingWriters.Dequeue();
                     releaser = _writerReleaser;
-                }
-                else if (_syncWritersWaiting > 0)
-                {
-                    _status = 0;
-                    Monitor.PulseAll(_waitingWriters);
                 }
                 else if (_readersWaiting > 0)
                 {
@@ -205,9 +203,16 @@ namespace CodeArt.ThreadUtils
                 }
             }
 
-            if (toWake != null)
+            if (toWake is TaskCompletionSource<IDisposable> tcs)
             {
-                toWake.SetResult(releaser);
+                tcs.SetResult(releaser);
+            }
+            else if (toWake is ReleaserDisposable disp)
+            {
+                lock (disp)
+                {
+                    Monitor.Pulse(disp);
+                }
             }
         }
 
@@ -216,7 +221,7 @@ namespace CodeArt.ThreadUtils
         ///     a releaser helper that implements IDisposable to support
         ///     using statement
         /// </summary>
-        private class ReleaserDisposable : IDisposable
+        private sealed class ReleaserDisposable : IDisposable
         {
             /// <summary>
             ///     underlying lock
@@ -240,16 +245,13 @@ namespace CodeArt.ThreadUtils
             /// </summary>
             public void Dispose()
             {
-                if (_toRelease != null)
+                if (_writer)
                 {
-                    if (_writer)
-                    {
-                        _toRelease.WriterRelease();
-                    }
-                    else
-                    {
-                        _toRelease.ReaderRelease();
-                    }
+                    _toRelease.WriterRelease();
+                }
+                else
+                {
+                    _toRelease.ReaderRelease();
                 }
             }
             #endregion

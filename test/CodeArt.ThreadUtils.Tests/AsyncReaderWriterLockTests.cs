@@ -1,4 +1,3 @@
-using System;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -115,7 +114,7 @@ namespace CodeArt.ThreadUtils.Tests
                 Assert.NotEqual(-1, d1);
                 Assert.NotEqual(-1, d2);
 
-                Assert.True(Math.Abs((d1 - d2) * 1000 / Stopwatch.Frequency) < 1);
+                Assert.Equal((double)d1 / Stopwatch.Frequency, (double)d2 / Stopwatch.Frequency, 2);
             }
         }
 
@@ -201,7 +200,7 @@ namespace CodeArt.ThreadUtils.Tests
                 Assert.NotEqual(-1, d1);
                 Assert.NotEqual(-1, d2);
 
-                Assert.True(Math.Abs((d1 - d2) * 1000 / Stopwatch.Frequency) < 1);
+                Assert.Equal((double)d1 / Stopwatch.Frequency, (double)d2 / Stopwatch.Frequency, 2);
             }
 
             [Fact(Timeout = 1500)]
@@ -230,7 +229,48 @@ namespace CodeArt.ThreadUtils.Tests
                 Assert.NotEqual(-1, d1);
                 Assert.NotEqual(-1, d2);
 
-                Assert.True(Math.Abs((d1 - d2) * 1000 / Stopwatch.Frequency) < 1);
+                Assert.Equal((double)d1 / Stopwatch.Frequency, (double)d2 / Stopwatch.Frequency, 2);
+            }
+
+            [Fact(Timeout = 100)]
+            public async Task ShouldNotStarveSyncWriters()
+            {
+                var rwl = new AsyncReaderWriterLock();
+                var w1 = await rwl.WriterLockAsync();
+
+                var w2t = Task.Run(() =>
+                {
+                    return rwl.WriterLock();
+                });
+                await Task.Delay(2);
+                var w3t = rwl.WriterLockAsync();
+                w1.Dispose();
+                var w2 = await w2t;
+                w2.Dispose();
+                var w3 = await w3t;
+                w3.Dispose();
+            }
+
+
+            [Fact(Timeout = 100)]
+            public async Task ShouldNotStarveAsyncWriters()
+            {
+                var rwl = new AsyncReaderWriterLock();
+                var w1 = rwl.WriterLock();
+
+                var w2t = rwl.WriterLockAsync();
+                await Task.Delay(2);
+                var w3t = Task.Run(() =>
+                {
+                    return rwl.WriterLock();
+                });
+                await Task.Delay(2);
+                w1.Dispose();
+                var w2 = await w2t;
+                w2.Dispose();
+                
+                var w3 = await w3t;
+                w3.Dispose();
             }
         }
 
@@ -293,7 +333,7 @@ namespace CodeArt.ThreadUtils.Tests
                 Assert.NotEqual(-1, d1);
                 Assert.NotEqual(-1, d2);
 
-                Assert.True(Math.Abs((d1 - d2) * 1000 / Stopwatch.Frequency) < 1);
+                Assert.Equal((double)d1 / Stopwatch.Frequency, (double)d2 / Stopwatch.Frequency, 2);
             }
         }
 
@@ -460,6 +500,47 @@ namespace CodeArt.ThreadUtils.Tests
                 await w1t;
                 await r3t;
                 await r4t;
+            }
+
+            [Fact(Timeout = 100)]
+            public async Task ShouldNotStarveSyncWriters()
+            {
+                var rwl = new AsyncReaderWriterLock();
+                var r1 = await rwl.ReaderLockAsync();
+
+                var w1t = Task.Run(() =>
+                {
+                    return rwl.WriterLock();
+                });
+                await Task.Delay(2);
+                var w2t = rwl.WriterLockAsync();
+                r1.Dispose();
+                var w1 = await w1t;
+                w1.Dispose();
+                var w2 = await w2t;
+                w2.Dispose();
+            }
+
+
+            [Fact(Timeout = 100)]
+            public async Task ShouldNotStarveAsyncWriters()
+            {
+                var rwl = new AsyncReaderWriterLock();
+                var r1 = rwl.ReaderLock();
+
+                var w1t = rwl.WriterLockAsync();
+                await Task.Delay(2);
+                var w2t = Task.Run(() =>
+                {
+                    return rwl.WriterLock();
+                });
+                await Task.Delay(2);
+                r1.Dispose();
+                var w1 = await w1t;
+                w1.Dispose();
+
+                var w2 = await w2t;
+                w2.Dispose();
             }
         }
     }
