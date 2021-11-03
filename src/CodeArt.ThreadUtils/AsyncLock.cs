@@ -42,6 +42,32 @@ namespace CodeArt.ThreadUtils
         /// <summary>
         /// Acquire an exclusive lock
         /// </summary>
+        /// <param name="cancellationToken">Cancellation token to cancel the wait</param>
+        /// <returns>returns a task that completes when the lock is acquired</returns>
+        public Task<IDisposable> LockAsync(CancellationToken cancellationToken)
+        {
+            lock(_waiters)
+            {
+                if (!_lockTaken)
+                {
+                    _lockTaken = true;
+                    return _releaserTask;
+                }
+                var tcs = new TaskCompletionSource<IDisposable>();
+                var registration = cancellationToken.Register(() =>
+                {
+                    tcs.TrySetCanceled();
+                });
+                var pair = new TaskSourceAndRegistrationPair(registration, tcs);
+                _waiters.Enqueue(pair);
+                
+                return tcs.Task;
+            }
+        }
+
+        /// <summary>
+        /// Acquire an exclusive lock
+        /// </summary>
         /// <returns>returns a task that completes when the lock is acquired</returns>
         public Task<IDisposable> LockAsync()
         {
@@ -101,7 +127,19 @@ namespace CodeArt.ThreadUtils
             }
             if (toWake is TaskCompletionSource<IDisposable> tcs)
             {
-                tcs.SetResult(_releaser);
+                tcs.TrySetResult(_releaser);
+                
+            }
+            else if (toWake is TaskSourceAndRegistrationPair pair)
+            {
+                pair.Registration.Dispose();
+                if(!pair.Source.TrySetCanceled())
+                {
+                    // Task was cancelled when a cancellationToken was cancelled
+                    // Try to release another waiter if any
+                    // This is tail call optimized in both 32-bit and 64-bit JIT using dotnet 5
+                    Release();
+                }
             }
             else if (toWake is ReleaserDisposable releaser)
             {
@@ -140,6 +178,20 @@ namespace CodeArt.ThreadUtils
             #endregion
         }
 
+        #endregion
+
+        #region Nested type: TaskSourceAndRegistrationPair
+        private sealed class TaskSourceAndRegistrationPair
+        {
+            public TaskSourceAndRegistrationPair(CancellationTokenRegistration registration, TaskCompletionSource<IDisposable> source)
+            {
+                Registration = registration;
+                Source = source;
+            }
+
+            public CancellationTokenRegistration Registration { get; }
+            public TaskCompletionSource<IDisposable> Source { get; }
+        }
         #endregion
     }
 }

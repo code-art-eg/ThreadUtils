@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System.Threading;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace CodeArt.ThreadUtils.Tests
@@ -92,6 +93,23 @@ namespace CodeArt.ThreadUtils.Tests
             var lck = new AsyncLock();
             using var l1 = lck.Lock();
             await AssertHelper.TimesoutAsync(lck.LockAsync());
+        }
+
+        [Fact(Timeout = 10)]
+        public async Task WouldCancelLockAndAllowOtherLocks()
+        {
+            var lck = new AsyncLock();
+            {
+                using var l1 = lck.Lock();
+                await Assert.ThrowsAsync<TaskCanceledException>(async () =>
+                {
+                    var cts = new CancellationTokenSource();
+                    var t = lck.LockAsync(cts.Token);
+                    cts.Cancel();
+                    await t;
+                });
+            }
+            using var l2 = lck.Lock();
         }
     }
 }
