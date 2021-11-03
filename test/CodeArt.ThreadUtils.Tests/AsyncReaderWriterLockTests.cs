@@ -7,6 +7,43 @@ namespace CodeArt.ThreadUtils.Tests
 {
     public class AsyncReaderWriterLockTests
     {
+        public class WhenCanceledAsync
+        {
+            [Fact(Timeout = 10)]
+            public async Task ShouldCancelReadLockAndAllowFurtherLocks()
+            {
+                var rwl = new AsyncReaderWriterLock();
+                {
+                    using var w1 = await rwl.WriterLockAsync();
+                    await Assert.ThrowsAsync<TaskCanceledException>(async () =>
+                    {
+                        var cts = new CancellationTokenSource();
+                        var t = rwl.ReaderLockAsync(cts.Token);
+                        cts.Cancel();
+                        await t;
+                    });
+                }
+                using var w2 = await rwl.WriterLockAsync();
+            }
+
+            [Fact(Timeout = 10)]
+            public async Task ShouldCancelWriteLockAndAllowFurtherLocks()
+            {
+                var rwl = new AsyncReaderWriterLock();
+                {
+                    using var w1 = await rwl.WriterLockAsync();
+                    await Assert.ThrowsAsync<TaskCanceledException>(async () =>
+                    {
+                        var cts = new CancellationTokenSource();
+                        var t = rwl.WriterLockAsync(cts.Token);
+                        cts.Cancel();
+                        await t;
+                    });
+                }
+                using var w2 = await rwl.WriterLockAsync();
+            }
+        }
+
         public class WhenUnlockedAsync
         {
             [Fact(Timeout = 10)]
@@ -268,7 +305,7 @@ namespace CodeArt.ThreadUtils.Tests
                 w1.Dispose();
                 var w2 = await w2t;
                 w2.Dispose();
-                
+
                 var w3 = await w3t;
                 w3.Dispose();
             }

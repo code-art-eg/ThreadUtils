@@ -71,13 +71,55 @@ namespace CodeArt.ThreadUtils
         {
             lock (_waitingWriters)
             {
-                while(_status < 0 || _waitingWriters.Count != 0)
+                while (_status < 0 || _waitingWriters.Count != 0)
                 {
                     Monitor.Wait(_waitingWriters);
                 }
                 ++_status;
             }
             return _readerReleaser;
+        }
+
+        /// <summary>
+        ///     acquire a reader lock
+        /// </summary>
+        /// <param name="cancellationToken">Token used to cancel waiting</param>
+        /// <returns>a task that completes when a reader lock is acquired.</returns>
+        public Task<IDisposable> ReaderLockAsync(CancellationToken cancellationToken)
+        {
+            lock (_waitingWriters)
+            {
+                if (_status >= 0
+                    && _waitingWriters.Count == 0)
+                {
+                    ++_status;
+                    return _readerReleaserTask;
+                }
+                ++_readersWaiting;
+                var cancelTaskSource = new TaskCompletionSource<bool>();
+                var registration = cancellationToken.Register(() =>
+                {
+                    cancelTaskSource.SetResult(true);
+                }, false);
+                var resultTask = Task.WhenAny(cancelTaskSource.Task, _waitingReader.Task)
+                    .ContinueWith(t =>
+                    {
+                        registration.Dispose();
+                        if (t.Result == cancelTaskSource.Task)
+                        {
+                            // Task was cancelled before the read is acquired.
+                            // Dispose the reader as soon as the lock is acquired.
+                            _waitingReader.Task.ContinueWith(t =>
+                            {
+                                t.Result.Dispose();
+                            });
+                            throw new TaskCanceledException();
+                        }
+                        // Reader acquired.
+                        return _waitingReader.Task.Result;
+                    });
+                return resultTask;
+            }
         }
 
         /// <summary>
@@ -95,7 +137,7 @@ namespace CodeArt.ThreadUtils
                     return _readerReleaserTask;
                 }
                 ++_readersWaiting;
-                return _waitingReader.Task; 
+                return _waitingReader.Task;
             }
         }
 
@@ -116,11 +158,36 @@ namespace CodeArt.ThreadUtils
                 newReleaser = new ReleaserDisposable(this, true);
                 _waitingWriters.Enqueue(newReleaser);
             }
-            lock(newReleaser)
+            lock (newReleaser)
             {
                 Monitor.Wait(newReleaser);
             }
             return _writerReleaser;
+        }
+
+        /// <summary>
+        ///     acquire a writer lock
+        /// </summary>
+        /// <param name="cancellationToken">cancelletion token used to cancel the wait</param>
+        /// <returns>a task that completes when a writer lock is acquired.</returns>
+        public Task<IDisposable> WriterLockAsync(CancellationToken cancellationToken)
+        {
+            lock (_waitingWriters)
+            {
+                if (_status == 0)
+                {
+                    _status = -1;
+                    return _writerReleaserTask;
+                }
+                var waiter = new TaskCompletionSource<IDisposable>();
+                var registration = cancellationToken.Register(() =>
+                {
+                    waiter.TrySetCanceled();
+                }, false);
+                var pair = new TaskSourceAndRegistrationPair(registration, waiter);
+                _waitingWriters.Enqueue(pair);
+                return waiter.Task;
+            }
         }
 
         /// <summary>
@@ -166,7 +233,7 @@ namespace CodeArt.ThreadUtils
             }
             else if (toWake is ReleaserDisposable disp)
             {
-                lock(disp)
+                lock (disp)
                 {
                     Monitor.Pulse(disp);
                 }
@@ -193,7 +260,7 @@ namespace CodeArt.ThreadUtils
                     toWake = _waitingReader;
                     _status = _readersWaiting;
                     _readersWaiting = 0;
-                    _waitingReader = new TaskCompletionSource<IDisposable>();
+                    _waitingReader = new();
                     Monitor.PulseAll(_waitingWriters);
                 }
                 else
@@ -206,6 +273,17 @@ namespace CodeArt.ThreadUtils
             if (toWake is TaskCompletionSource<IDisposable> tcs)
             {
                 tcs.SetResult(releaser);
+            }
+            else if (toWake is TaskSourceAndRegistrationPair pair)
+            {
+                pair.Registration.Dispose();
+                if (!pair.Source.TrySetResult(_writerReleaser))
+                {
+                    // Task was cancelled when a cancellationToken was cancelled
+                    // Try to release another waiter if any
+                    // This is tail call optimized in both 32-bit and 64-bit JIT using dotnet 5
+                    WriterRelease();
+                }
             }
             else if (toWake is ReleaserDisposable disp)
             {
@@ -255,6 +333,20 @@ namespace CodeArt.ThreadUtils
                 }
             }
             #endregion
+        }
+        #endregion
+
+        #region Nested type: TaskSourceAndRegistrationPair
+        private sealed class TaskSourceAndRegistrationPair
+        {
+            public TaskSourceAndRegistrationPair(CancellationTokenRegistration registration, TaskCompletionSource<IDisposable> source)
+            {
+                Registration = registration;
+                Source = source;
+            }
+
+            public CancellationTokenRegistration Registration { get; }
+            public TaskCompletionSource<IDisposable> Source { get; }
         }
         #endregion
     }
