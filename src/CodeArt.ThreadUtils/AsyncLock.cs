@@ -57,7 +57,7 @@ namespace CodeArt.ThreadUtils
                 var registration = cancellationToken.Register(() =>
                 {
                     tcs.TrySetCanceled();
-                });
+                }, false);
                 var pair = new TaskSourceAndRegistrationPair(registration, tcs);
                 _waiters.Enqueue(pair);
                 
