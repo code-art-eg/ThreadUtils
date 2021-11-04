@@ -101,6 +101,7 @@ namespace CodeArt.ThreadUtils
                 {
                     cancelTaskSource.SetResult(true);
                 }, false);
+                // The MethodSupportsCancellation is a false positive since cancelTaskSource is completed when the cancellation token is cancelled.
                 // ReSharper disable MethodSupportsCancellation
                 var resultTask = Task.WhenAny(cancelTaskSource.Task, _waitingReader.Task)
                     .ContinueWith(t =>
@@ -114,6 +115,7 @@ namespace CodeArt.ThreadUtils
 
                         // Task was cancelled before the read is acquired.
                         // Dispose the reader as soon as the lock is acquired.
+                        // TODO: The lock would be released in a continuation following acquiring the lock. Consider a way to remove the reader from waiting readers without lock acquisition.
                         _waitingReader.Task.ContinueWith(wt =>
                         {
                             wt.Result.Dispose();
@@ -291,7 +293,6 @@ namespace CodeArt.ThreadUtils
                         {
                             // Task was cancelled when a cancellationToken was cancelled
                             // Try to release another waiter if any
-                            // This is tail call optimized in both 32-bit and 64-bit JIT using dotnet 5
                             continue;
                         }
 

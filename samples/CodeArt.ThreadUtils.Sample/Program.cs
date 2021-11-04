@@ -1,14 +1,3 @@
-﻿using System.Threading.Tasks;
+﻿using CodeArt.ThreadUtils.Sample;
 
-namespace CodeArt.ThreadUtils.Sample
-{
-    internal class Program
-    {
-        private static async Task Main()
-        {
-            await ReaderWriterSample.RunAsync();
-        }
-
-        
-    }
-}
+await ReaderWriterSample.RunAsync();
