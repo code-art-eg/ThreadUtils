@@ -238,7 +238,7 @@ namespace CodeArt.ThreadUtils.Tests
                 Assert.NotEqual(-1, d1);
                 Assert.NotEqual(-1, d2);
 
-                Assert.Equal((double)d1 / Stopwatch.Frequency, (double)d2 / Stopwatch.Frequency, 2);
+                Assert.Equal((double)d1 / Stopwatch.Frequency, (double)d2 / Stopwatch.Frequency, 1);
             }
 
             [Fact(Timeout = 1500)]
@@ -267,7 +267,7 @@ namespace CodeArt.ThreadUtils.Tests
                 Assert.NotEqual(-1, d1);
                 Assert.NotEqual(-1, d2);
 
-                Assert.Equal((double)d1 / Stopwatch.Frequency, (double)d2 / Stopwatch.Frequency, 2);
+                Assert.Equal((double)d1 / Stopwatch.Frequency, (double)d2 / Stopwatch.Frequency, 1);
             }
 
             [Fact(Timeout = 100)]
@@ -365,7 +365,7 @@ namespace CodeArt.ThreadUtils.Tests
                 Assert.NotEqual(-1, d1);
                 Assert.NotEqual(-1, d2);
 
-                Assert.Equal((double)d1 / Stopwatch.Frequency, (double)d2 / Stopwatch.Frequency, 2);
+                Assert.Equal((double)d1 / Stopwatch.Frequency, (double)d2 / Stopwatch.Frequency, 1);
             }
         }
 
