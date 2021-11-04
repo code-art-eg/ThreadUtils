@@ -101,23 +101,26 @@ namespace CodeArt.ThreadUtils
                 {
                     cancelTaskSource.SetResult(true);
                 }, false);
+                // ReSharper disable MethodSupportsCancellation
                 var resultTask = Task.WhenAny(cancelTaskSource.Task, _waitingReader.Task)
                     .ContinueWith(t =>
                     {
                         registration.Dispose();
-                        if (t.Result == cancelTaskSource.Task)
+                        if (t.Result != cancelTaskSource.Task)
                         {
-                            // Task was cancelled before the read is acquired.
-                            // Dispose the reader as soon as the lock is acquired.
-                            _waitingReader.Task.ContinueWith(t =>
-                            {
-                                t.Result.Dispose();
-                            });
-                            throw new TaskCanceledException();
+                            // Reader acquired.
+                            return _waitingReader.Task.Result;
                         }
-                        // Reader acquired.
-                        return _waitingReader.Task.Result;
+
+                        // Task was cancelled before the read is acquired.
+                        // Dispose the reader as soon as the lock is acquired.
+                        _waitingReader.Task.ContinueWith(wt =>
+                        {
+                            wt.Result.Dispose();
+                        });
+                        throw new TaskCanceledException();
                     });
+                // ReSharper restore MethodSupportsCancellation
                 return resultTask;
             }
         }
@@ -168,7 +171,7 @@ namespace CodeArt.ThreadUtils
         /// <summary>
         ///     acquire a writer lock
         /// </summary>
-        /// <param name="cancellationToken">cancelletion token used to cancel the wait</param>
+        /// <param name="cancellationToken">cancellation token used to cancel the wait</param>
         /// <returns>a task that completes when a writer lock is acquired.</returns>
         public Task<IDisposable> WriterLockAsync(CancellationToken cancellationToken)
         {
@@ -227,15 +230,19 @@ namespace CodeArt.ThreadUtils
                 }
             }
 
-            if (toWake is TaskCompletionSource<IDisposable> tcs)
+            switch (toWake)
             {
-                tcs.SetResult(_writerReleaser);
-            }
-            else if (toWake is ReleaserDisposable disp)
-            {
-                lock (disp)
+                case TaskCompletionSource<IDisposable> tcs:
+                    tcs.SetResult(_writerReleaser);
+                    break;
+                case ReleaserDisposable disposable:
                 {
-                    Monitor.Pulse(disp);
+                    lock (disposable)
+                    {
+                        Monitor.Pulse(disposable);
+                    }
+
+                    break;
                 }
             }
         }
@@ -245,52 +252,63 @@ namespace CodeArt.ThreadUtils
         /// </summary>
         private void WriterRelease()
         {
-            object? toWake = null;
-            var releaser = _readerReleaser;
+            while (true)
+            {
+                object? toWake = null;
+                var releaser = _readerReleaser;
 
-            lock (_waitingWriters)
-            {
-                if (_waitingWriters.Count > 0)
+                lock (_waitingWriters)
                 {
-                    toWake = _waitingWriters.Dequeue();
-                    releaser = _writerReleaser;
+                    if (_waitingWriters.Count > 0)
+                    {
+                        toWake = _waitingWriters.Dequeue();
+                        releaser = _writerReleaser;
+                    }
+                    else if (_readersWaiting > 0)
+                    {
+                        toWake = _waitingReader;
+                        _status = _readersWaiting;
+                        _readersWaiting = 0;
+                        _waitingReader = new TaskCompletionSource<IDisposable>();
+                        Monitor.PulseAll(_waitingWriters);
+                    }
+                    else
+                    {
+                        _status = 0;
+                        Monitor.PulseAll(_waitingWriters);
+                    }
                 }
-                else if (_readersWaiting > 0)
-                {
-                    toWake = _waitingReader;
-                    _status = _readersWaiting;
-                    _readersWaiting = 0;
-                    _waitingReader = new();
-                    Monitor.PulseAll(_waitingWriters);
-                }
-                else
-                {
-                    _status = 0;
-                    Monitor.PulseAll(_waitingWriters);
-                }
-            }
 
-            if (toWake is TaskCompletionSource<IDisposable> tcs)
-            {
-                tcs.SetResult(releaser);
-            }
-            else if (toWake is TaskSourceAndRegistrationPair pair)
-            {
-                pair.Registration.Dispose();
-                if (!pair.Source.TrySetResult(_writerReleaser))
+                switch (toWake)
                 {
-                    // Task was cancelled when a cancellationToken was cancelled
-                    // Try to release another waiter if any
-                    // This is tail call optimized in both 32-bit and 64-bit JIT using dotnet 5
-                    WriterRelease();
+                    case TaskCompletionSource<IDisposable> tcs:
+                        tcs.SetResult(releaser);
+                        break;
+                    case TaskSourceAndRegistrationPair pair:
+                    {
+                        pair.Registration.Dispose();
+                        if (!pair.Source.TrySetResult(_writerReleaser))
+                        {
+                            // Task was cancelled when a cancellationToken was cancelled
+                            // Try to release another waiter if any
+                            // This is tail call optimized in both 32-bit and 64-bit JIT using dotnet 5
+                            continue;
+                        }
+
+                        break;
+                    }
+                    case ReleaserDisposable disposable:
+                    {
+                        lock (disposable)
+                        {
+                            Monitor.Pulse(disposable);
+                        }
+
+                        break;
+                    }
                 }
-            }
-            else if (toWake is ReleaserDisposable disp)
-            {
-                lock (disp)
-                {
-                    Monitor.Pulse(disp);
-                }
+
+                break;
             }
         }
 

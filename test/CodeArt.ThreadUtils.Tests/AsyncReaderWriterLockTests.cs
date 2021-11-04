@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
+// ReSharper disable MethodHasAsyncOverload
 
 namespace CodeArt.ThreadUtils.Tests
 {
@@ -81,7 +82,7 @@ namespace CodeArt.ThreadUtils.Tests
             }
         }
 
-        public class WhenUlockedSync
+        public class WhenUnlockedSync
         {
             [Fact(Timeout = 10)]
             public void AllowsSingleWriter()
@@ -106,10 +107,10 @@ namespace CodeArt.ThreadUtils.Tests
             {
                 var rwl = new AsyncReaderWriterLock();
                 var w1 = await rwl.WriterLockAsync();
-                var r2t = rwl.ReaderLockAsync();
-                await AssertHelper.TimesoutAsync(r2t);
+                var r2T = rwl.ReaderLockAsync();
+                await AssertHelper.TimesOutAsync(r2T);
                 w1.Dispose();
-                var r2 = await r2t;
+                var r2 = await r2T;
                 r2.Dispose();
             }
 
@@ -118,10 +119,10 @@ namespace CodeArt.ThreadUtils.Tests
             {
                 var rwl = new AsyncReaderWriterLock();
                 var w1 = await rwl.WriterLockAsync();
-                var w2t = rwl.WriterLockAsync();
-                await AssertHelper.TimesoutAsync(w2t);
+                var w2T = rwl.WriterLockAsync();
+                await AssertHelper.TimesOutAsync(w2T);
                 w1.Dispose();
-                var w2 = await w2t;
+                var w2 = await w2T;
                 w2.Dispose();
             }
 
@@ -132,21 +133,21 @@ namespace CodeArt.ThreadUtils.Tests
                 var w1 = await rwl.WriterLockAsync();
                 long d1 = -1;
                 long d2 = -1;
-                var r1t = Task.Run(async () =>
+                var r1T = Task.Run(async () =>
                 {
                     using var r1 = await rwl.ReaderLockAsync();
                     d1 = Stopwatch.GetTimestamp();
                     await Task.Delay(1000);
                 });
-                var r2t = Task.Run(async () =>
+                var r2T = Task.Run(async () =>
                 {
                     using var r2 = await rwl.ReaderLockAsync();
                     d2 = Stopwatch.GetTimestamp();
                     await Task.Delay(1000);
                 });
                 w1.Dispose();
-                await r1t;
-                await r2t;
+                await r1T;
+                await r2T;
 
                 Assert.NotEqual(-1, d1);
                 Assert.NotEqual(-1, d2);
@@ -162,10 +163,10 @@ namespace CodeArt.ThreadUtils.Tests
             {
                 var rwl = new AsyncReaderWriterLock();
                 var w1 = rwl.WriterLock();
-                var r2t = rwl.ReaderLockAsync();
-                await AssertHelper.TimesoutAsync(r2t);
+                var r2T = rwl.ReaderLockAsync();
+                await AssertHelper.TimesOutAsync(r2T);
                 w1.Dispose();
-                var r2 = await r2t;
+                var r2 = await r2T;
                 r2.Dispose();
             }
 
@@ -174,14 +175,14 @@ namespace CodeArt.ThreadUtils.Tests
             {
                 var rwl = new AsyncReaderWriterLock();
                 var w1 = await rwl.WriterLockAsync();
-                var r2tcs = new TaskCompletionSource();
-                await AssertHelper.TimesoutAsync(() =>
+                var r2Tcs = new TaskCompletionSource();
+                await AssertHelper.TimesOutAsync(() =>
                 {
                     using var r2 = rwl.ReaderLock();
-                    r2tcs.SetResult();
+                    r2Tcs.SetResult();
                 });
                 w1.Dispose();
-                await r2tcs.Task;
+                await r2Tcs.Task;
             }
 
             [Fact(Timeout = 1500)]
@@ -189,10 +190,10 @@ namespace CodeArt.ThreadUtils.Tests
             {
                 var rwl = new AsyncReaderWriterLock();
                 var w1 = rwl.WriterLock();
-                var w2t = rwl.WriterLockAsync();
-                await AssertHelper.TimesoutAsync(w2t);
+                var w2T = rwl.WriterLockAsync();
+                await AssertHelper.TimesOutAsync(w2T);
                 w1.Dispose();
-                var w2 = await w2t;
+                var w2 = await w2T;
                 w2.Dispose();
             }
 
@@ -201,14 +202,14 @@ namespace CodeArt.ThreadUtils.Tests
             {
                 var rwl = new AsyncReaderWriterLock();
                 var w1 = await rwl.WriterLockAsync();
-                var w2tcs = new TaskCompletionSource();
-                await AssertHelper.TimesoutAsync(() =>
+                var w2Tcs = new TaskCompletionSource();
+                await AssertHelper.TimesOutAsync(() =>
                 {
                     using var w2 = rwl.WriterLock();
-                    w2tcs.SetResult();
+                    w2Tcs.SetResult();
                 });
                 w1.Dispose();
-                await w2tcs.Task;
+                await w2Tcs.Task;
             }
 
             [Fact(Timeout = 1500)]
@@ -218,21 +219,21 @@ namespace CodeArt.ThreadUtils.Tests
                 var w1 = rwl.WriterLock();
                 long d1 = -1;
                 long d2 = -1;
-                var r1t = Task.Run(async () =>
+                var r1T = Task.Run(async () =>
                 {
                     using var r1 = await rwl.ReaderLockAsync();
                     d1 = Stopwatch.GetTimestamp();
                     await Task.Delay(1000);
                 });
-                var r2t = Task.Run(() =>
+                var r2T = Task.Run(() =>
                 {
                     using var r2 = rwl.ReaderLock();
                     d2 = Stopwatch.GetTimestamp();
                     Thread.Sleep(1000);
                 });
                 w1.Dispose();
-                await r1t;
-                await r2t;
+                await r1T;
+                await r2T;
 
                 Assert.NotEqual(-1, d1);
                 Assert.NotEqual(-1, d2);
@@ -247,21 +248,21 @@ namespace CodeArt.ThreadUtils.Tests
                 var w1 = await rwl.WriterLockAsync();
                 long d1 = -1;
                 long d2 = -1;
-                var r1t = Task.Run(async () =>
+                var r1T = Task.Run(async () =>
                 {
                     using var r1 = await rwl.ReaderLockAsync();
                     d1 = Stopwatch.GetTimestamp();
                     await Task.Delay(1000);
                 });
-                var r2t = Task.Run(() =>
+                var r2T = Task.Run(() =>
                 {
                     using var r2 = rwl.ReaderLock();
                     d2 = Stopwatch.GetTimestamp();
                     Thread.Sleep(1000);
                 });
                 w1.Dispose();
-                await r1t;
-                await r2t;
+                await r1T;
+                await r2T;
 
                 Assert.NotEqual(-1, d1);
                 Assert.NotEqual(-1, d2);
@@ -275,16 +276,13 @@ namespace CodeArt.ThreadUtils.Tests
                 var rwl = new AsyncReaderWriterLock();
                 var w1 = await rwl.WriterLockAsync();
 
-                var w2t = Task.Run(() =>
-                {
-                    return rwl.WriterLock();
-                });
+                var w2T = Task.Run(rwl.WriterLock);
                 await Task.Delay(2);
-                var w3t = rwl.WriterLockAsync();
+                var w3T = rwl.WriterLockAsync();
                 w1.Dispose();
-                var w2 = await w2t;
+                var w2 = await w2T;
                 w2.Dispose();
-                var w3 = await w3t;
+                var w3 = await w3T;
                 w3.Dispose();
             }
 
@@ -295,18 +293,15 @@ namespace CodeArt.ThreadUtils.Tests
                 var rwl = new AsyncReaderWriterLock();
                 var w1 = rwl.WriterLock();
 
-                var w2t = rwl.WriterLockAsync();
+                var w2T = rwl.WriterLockAsync();
                 await Task.Delay(2);
-                var w3t = Task.Run(() =>
-                {
-                    return rwl.WriterLock();
-                });
+                var w3T = Task.Run(rwl.WriterLock);
                 await Task.Delay(2);
                 w1.Dispose();
-                var w2 = await w2t;
+                var w2 = await w2T;
                 w2.Dispose();
 
-                var w3 = await w3t;
+                var w3 = await w3T;
                 w3.Dispose();
             }
         }
@@ -319,14 +314,14 @@ namespace CodeArt.ThreadUtils.Tests
             {
                 var rwl = new AsyncReaderWriterLock();
                 var w1 = rwl.WriterLock();
-                var r1tcs = new TaskCompletionSource();
-                await AssertHelper.TimesoutAsync(() =>
+                var r1Tcs = new TaskCompletionSource();
+                await AssertHelper.TimesOutAsync(() =>
                 {
                     using var r1 = rwl.ReaderLock();
-                    r1tcs.SetResult();
+                    r1Tcs.SetResult();
                 });
                 w1.Dispose();
-                await r1tcs.Task;
+                await r1Tcs.Task;
             }
 
             [Fact(Timeout = 1500)]
@@ -334,14 +329,14 @@ namespace CodeArt.ThreadUtils.Tests
             {
                 var rwl = new AsyncReaderWriterLock();
                 var w1 = rwl.WriterLock();
-                var w2tcs = new TaskCompletionSource();
-                await AssertHelper.TimesoutAsync(() =>
+                var w2Tcs = new TaskCompletionSource();
+                await AssertHelper.TimesOutAsync(() =>
                 {
                     using var w2 = rwl.WriterLock();
-                    w2tcs.SetResult();
+                    w2Tcs.SetResult();
                 });
                 w1.Dispose();
-                await w2tcs.Task;
+                await w2Tcs.Task;
             }
 
             [Fact(Timeout = 1500)]
@@ -351,21 +346,21 @@ namespace CodeArt.ThreadUtils.Tests
                 var w1 = rwl.WriterLock();
                 long d1 = -1;
                 long d2 = -1;
-                var r1t = Task.Run(() =>
+                var r1T = Task.Run(() =>
                 {
                     using var r1 = rwl.ReaderLock();
                     d1 = Stopwatch.GetTimestamp();
                     Thread.Sleep(1000);
                 });
-                var r2t = Task.Run(() =>
+                var r2T = Task.Run(() =>
                 {
                     using var r2 = rwl.ReaderLock();
                     d2 = Stopwatch.GetTimestamp();
                     Thread.Sleep(1000);
                 });
                 w1.Dispose();
-                await r1t;
-                await r2t;
+                await r1T;
+                await r2T;
 
                 Assert.NotEqual(-1, d1);
                 Assert.NotEqual(-1, d2);
@@ -381,10 +376,10 @@ namespace CodeArt.ThreadUtils.Tests
             {
                 var rwl = new AsyncReaderWriterLock();
                 var r1 = await rwl.ReaderLockAsync();
-                var w1t = rwl.WriterLockAsync();
-                await AssertHelper.TimesoutAsync(w1t);
+                var w1T = rwl.WriterLockAsync();
+                await AssertHelper.TimesOutAsync(w1T);
                 r1.Dispose();
-                var w1 = await w1t;
+                var w1 = await w1T;
                 w1.Dispose();
             }
 
@@ -394,15 +389,15 @@ namespace CodeArt.ThreadUtils.Tests
                 var rwl = new AsyncReaderWriterLock();
                 var r1 = await rwl.ReaderLockAsync();
                 var r2 = await rwl.ReaderLockAsync();
-                var w1t = rwl.WriterLockAsync();
+                var w1T = rwl.WriterLockAsync();
                 r1.Dispose();
-                var r3t = rwl.ReaderLockAsync();
-                var r4t = rwl.ReaderLockAsync();
+                var r3T = rwl.ReaderLockAsync();
+                var r4T = rwl.ReaderLockAsync();
                 r2.Dispose();
-                var w1 = await w1t;
+                var w1 = await w1T;
                 w1.Dispose();
-                var r3 = await r3t;
-                var r4 = await r4t;
+                var r3 = await r3T;
+                var r4 = await r4T;
                 r3.Dispose();
                 r4.Dispose();
             }
@@ -415,14 +410,14 @@ namespace CodeArt.ThreadUtils.Tests
             {
                 var rwl = new AsyncReaderWriterLock();
                 var r1 = rwl.ReaderLock();
-                var w1tcs = new TaskCompletionSource();
-                await AssertHelper.TimesoutAsync(() =>
+                var w1Tcs = new TaskCompletionSource();
+                await AssertHelper.TimesOutAsync(() =>
                 {
                     using var w1 = rwl.WriterLock();
-                    w1tcs.SetResult();
+                    w1Tcs.SetResult();
                 });
                 r1.Dispose();
-                await w1tcs.Task;
+                await w1Tcs.Task;
             }
 
             [Fact(Timeout = 10)]
@@ -432,24 +427,24 @@ namespace CodeArt.ThreadUtils.Tests
                 var r1 = rwl.ReaderLock();
                 var r2 = rwl.ReaderLock();
 
-                var w1t = Task.Run(() =>
+                var w1T = Task.Run(() =>
                 {
                     using var w1 = rwl.WriterLock();
                 });
                 r1.Dispose();
-                var r3t = Task.Run(() =>
+                var r3T = Task.Run(() =>
                 {
                     using var r3 = rwl.ReaderLock();
                 });
-                var r4t = Task.Run(() =>
+                var r4T = Task.Run(() =>
                 {
                     using var r3 = rwl.ReaderLock();
                 });
                 await Task.Yield();
                 r2.Dispose();
-                await w1t;
-                await r3t;
-                await r4t;
+                await w1T;
+                await r3T;
+                await r4T;
             }
         }
 
@@ -460,14 +455,14 @@ namespace CodeArt.ThreadUtils.Tests
             {
                 var rwl = new AsyncReaderWriterLock();
                 var r1 = rwl.ReaderLock();
-                var w1tcs = new TaskCompletionSource();
-                await AssertHelper.TimesoutAsync(rwl.WriterLockAsync().ContinueWith(t =>
+                var w1Tcs = new TaskCompletionSource();
+                await AssertHelper.TimesOutAsync(rwl.WriterLockAsync().ContinueWith(t =>
                 {
                     t.Result.Dispose();
-                    w1tcs.SetResult();
+                    w1Tcs.SetResult();
                 }));
                 r1.Dispose();
-                await w1tcs.Task;
+                await w1Tcs.Task;
             }
 
             [Fact(Timeout = 1500)]
@@ -475,14 +470,14 @@ namespace CodeArt.ThreadUtils.Tests
             {
                 var rwl = new AsyncReaderWriterLock();
                 var r1 = await rwl.ReaderLockAsync();
-                var w1tcs = new TaskCompletionSource();
-                await AssertHelper.TimesoutAsync(() =>
+                var w1Tcs = new TaskCompletionSource();
+                await AssertHelper.TimesOutAsync(() =>
                 {
                     using var w1 = rwl.WriterLock();
-                    w1tcs.SetResult();
+                    w1Tcs.SetResult();
                 });
                 r1.Dispose();
-                await w1tcs.Task;
+                await w1Tcs.Task;
             }
 
             [Fact(Timeout = 10)]
@@ -492,24 +487,24 @@ namespace CodeArt.ThreadUtils.Tests
                 var r1 = rwl.ReaderLock();
                 var r2 = await rwl.ReaderLockAsync();
 
-                var w1t = Task.Run(() =>
+                var w1T = Task.Run(() =>
                 {
                     using var w1 = rwl.WriterLock();
                 });
                 r1.Dispose();
-                var r3t = Task.Run(async () =>
+                var r3T = Task.Run(async () =>
                 {
                     using var r3 = await rwl.ReaderLockAsync();
                 });
-                var r4t = Task.Run(() =>
+                var r4T = Task.Run(() =>
                 {
                     using var r3 = rwl.ReaderLock();
                 });
                 await Task.Yield();
                 r2.Dispose();
-                await w1t;
-                await r3t;
-                await r4t;
+                await w1T;
+                await r3T;
+                await r4T;
             }
 
             [Fact(Timeout = 10)]
@@ -519,24 +514,24 @@ namespace CodeArt.ThreadUtils.Tests
                 var r1 = rwl.ReaderLock();
                 var r2 = await rwl.ReaderLockAsync();
 
-                var w1t = Task.Run(async () =>
+                var w1T = Task.Run(async () =>
                 {
                     using var w1 = await rwl.WriterLockAsync();
                 });
                 r1.Dispose();
-                var r3t = Task.Run(async () =>
+                var r3T = Task.Run(async () =>
                 {
                     using var r3 = await rwl.ReaderLockAsync();
                 });
-                var r4t = Task.Run(() =>
+                var r4T = Task.Run(() =>
                 {
                     using var r3 = rwl.ReaderLock();
                 });
                 await Task.Yield();
                 r2.Dispose();
-                await w1t;
-                await r3t;
-                await r4t;
+                await w1T;
+                await r3T;
+                await r4T;
             }
 
             [Fact(Timeout = 100)]
@@ -545,16 +540,13 @@ namespace CodeArt.ThreadUtils.Tests
                 var rwl = new AsyncReaderWriterLock();
                 var r1 = await rwl.ReaderLockAsync();
 
-                var w1t = Task.Run(() =>
-                {
-                    return rwl.WriterLock();
-                });
+                var w1T = Task.Run(rwl.WriterLock);
                 await Task.Delay(2);
-                var w2t = rwl.WriterLockAsync();
+                var w2T = rwl.WriterLockAsync();
                 r1.Dispose();
-                var w1 = await w1t;
+                var w1 = await w1T;
                 w1.Dispose();
-                var w2 = await w2t;
+                var w2 = await w2T;
                 w2.Dispose();
             }
 
@@ -565,18 +557,15 @@ namespace CodeArt.ThreadUtils.Tests
                 var rwl = new AsyncReaderWriterLock();
                 var r1 = rwl.ReaderLock();
 
-                var w1t = rwl.WriterLockAsync();
+                var w1T = rwl.WriterLockAsync();
                 await Task.Delay(2);
-                var w2t = Task.Run(() =>
-                {
-                    return rwl.WriterLock();
-                });
+                var w2T = Task.Run(rwl.WriterLock);
                 await Task.Delay(2);
                 r1.Dispose();
-                var w1 = await w1t;
+                var w1 = await w1T;
                 w1.Dispose();
 
-                var w2 = await w2t;
+                var w2 = await w2T;
                 w2.Dispose();
             }
         }

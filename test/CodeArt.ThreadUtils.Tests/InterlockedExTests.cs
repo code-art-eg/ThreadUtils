@@ -9,17 +9,17 @@ namespace CodeArt.ThreadUtils.Tests
         [Fact]
         public void TestIntApply()
         {
-            int val = 0;
-            int iterations = 100_000;
-            int cpuCount = Environment.ProcessorCount;
-            Thread[] threads = new Thread[cpuCount * 2];
+            var val = 0;
+            const int iterations = 100_000;
+            var cpuCount = Environment.ProcessorCount;
+            var threads = new Thread[cpuCount * 2];
 
             static int Fn(int v)
             {
                 return v + 1;
             }
             
-            for (int i = 0; i < threads.Length; i++)
+            for (var i = 0; i < threads.Length; i++)
             {
                 threads[i] = new Thread(() =>
                 {
@@ -31,9 +31,9 @@ namespace CodeArt.ThreadUtils.Tests
                 threads[i].Start();
             }
 
-            for (int i = 0; i < threads.Length; i++)
+            foreach (var thread in threads)
             {
-                threads[i].Join();
+                thread.Join();
             }
             Assert.Equal(iterations * threads.Length, val);
         }
@@ -42,16 +42,16 @@ namespace CodeArt.ThreadUtils.Tests
         public void TestLongApply()
         {
             long val = 0;
-            int iterations = 100_000;
-            int cpuCount = Environment.ProcessorCount;
-            Thread[] threads = new Thread[cpuCount * 2];
+            const int iterations = 100_000;
+            var cpuCount = Environment.ProcessorCount;
+            var threads = new Thread[cpuCount * 2];
 
             static long Fn(long v)
             {
                 return v + 1;
             }
 
-            for (int i = 0; i < threads.Length; i++)
+            for (var i = 0; i < threads.Length; i++)
             {
                 threads[i] = new Thread(() =>
                 {
@@ -63,9 +63,9 @@ namespace CodeArt.ThreadUtils.Tests
                 threads[i].Start();
             }
 
-            for (int i = 0; i < threads.Length; i++)
+            foreach (var thread in threads)
             {
-                threads[i].Join();
+                thread.Join();
             }
             Assert.Equal(iterations * threads.Length, val);
         }

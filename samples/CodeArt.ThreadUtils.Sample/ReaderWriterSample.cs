@@ -7,11 +7,11 @@ namespace CodeArt.ThreadUtils.Sample
     internal static class ReaderWriterSample
     {
         private const int MillisecondsTimeout = 1000;
-        private static readonly AsyncReaderWriterLock _lock = new();
+        private static readonly AsyncReaderWriterLock s_lock = new();
 
         public static async Task RunAsync()
         {
-            int n = 10;
+            const int n = 10;
             var list = new Task[n];
             for (var i = 0; i < n; i++)
             {
@@ -21,7 +21,7 @@ namespace CodeArt.ThreadUtils.Sample
                 }
                 else if (i % 5 == 1)
                 {
-                    int t = i;
+                    var t = i;
                     list[i] = Task.Run(() => Write(t));
                 }
                 else if (i % 2 == 0)
@@ -30,7 +30,7 @@ namespace CodeArt.ThreadUtils.Sample
                 }
                 else
                 {
-                    int t = i;
+                    var t = i;
                     list[i] = Task.Run(() => Read(t));
                 }
             }
@@ -40,7 +40,7 @@ namespace CodeArt.ThreadUtils.Sample
         private static async Task ReadAsync(int id)
         {
             Console.WriteLine($"Async Reader {id} starting at {DateTime.Now}.");
-            using (await _lock.ReaderLockAsync())
+            using (await s_lock.ReaderLockAsync())
             {
                 Console.WriteLine($"Async Reader {id} acquired reader lock at {DateTime.Now}.");
                 await Task.Delay(MillisecondsTimeout);
@@ -52,7 +52,7 @@ namespace CodeArt.ThreadUtils.Sample
         private static async Task WriteAsync(int id)
         {
             Console.WriteLine($"Async Writer {id} starting at {DateTime.Now}.");
-            using (await _lock.WriterLockAsync())
+            using (await s_lock.WriterLockAsync())
             {
                 Console.WriteLine($"Async Writer {id} acquired writer lock at {DateTime.Now}.");
                 await Task.Delay(MillisecondsTimeout);
@@ -64,7 +64,7 @@ namespace CodeArt.ThreadUtils.Sample
         private static void Read(int id)
         {
             Console.WriteLine($"Sync Reader {id} starting at {DateTime.Now}.");
-            using (_lock.ReaderLock())
+            using (s_lock.ReaderLock())
             {
                 Console.WriteLine($"Sync Reader {id} acquired reader lock at {DateTime.Now}.");
                 Thread.Sleep(MillisecondsTimeout);
@@ -76,7 +76,7 @@ namespace CodeArt.ThreadUtils.Sample
         private static void Write(int id)
         {
             Console.WriteLine($"Sync Writer {id} starting at {DateTime.Now}.");
-            using (_lock.WriterLock())
+            using (s_lock.WriterLock())
             {
                 Console.WriteLine($"Sync Writer {id} acquired writer lock at {DateTime.Now}.");
                 Thread.Sleep(MillisecondsTimeout);

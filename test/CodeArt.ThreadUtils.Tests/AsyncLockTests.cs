@@ -1,6 +1,7 @@
 ﻿using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
+// ReSharper disable MethodHasAsyncOverload
 
 namespace CodeArt.ThreadUtils.Tests
 {
@@ -35,9 +36,9 @@ namespace CodeArt.ThreadUtils.Tests
         {
             var lck = new AsyncLock();
             var l1 = await lck.LockAsync();
-            var l2t = lck.LockAsync();
+            var l2T = lck.LockAsync();
             l1.Dispose();
-            var l2 = await l2t;
+            var l2 = await l2T;
             l2.Dispose();
         }
 
@@ -46,9 +47,9 @@ namespace CodeArt.ThreadUtils.Tests
         {
             var lck = new AsyncLock();
             var l1 = await lck.LockAsync();
-            var l2t = Task.Run(() => lck.Lock());
+            var l2T = Task.Run(() => lck.Lock());
             l1.Dispose();
-            var l2 = await l2t;
+            var l2 = await l2T;
             l2.Dispose();
         }
 
@@ -57,9 +58,9 @@ namespace CodeArt.ThreadUtils.Tests
         {
             var lck = new AsyncLock();
             var l1 = lck.Lock();
-            var l2t = lck.LockAsync();
+            var l2T = lck.LockAsync();
             l1.Dispose();
-            var l2 = await l2t;
+            var l2 = await l2T;
             l2.Dispose();
         }
 
@@ -68,7 +69,7 @@ namespace CodeArt.ThreadUtils.Tests
         {
             var lck = new AsyncLock();
             using var l1 = lck.Lock();
-            await AssertHelper.TimesoutAsync(() => lck.Lock());
+            await AssertHelper.TimesOutAsync(() => lck.Lock());
         }
 
         [Fact(Timeout = 1500)]
@@ -76,7 +77,7 @@ namespace CodeArt.ThreadUtils.Tests
         {
             var lck = new AsyncLock();
             using var l1 = await lck.LockAsync();
-            await AssertHelper.TimesoutAsync(lck.LockAsync());
+            await AssertHelper.TimesOutAsync(lck.LockAsync());
         }
 
         [Fact(Timeout = 1500)]
@@ -84,7 +85,7 @@ namespace CodeArt.ThreadUtils.Tests
         {
             var lck = new AsyncLock();
             using var l1 = await lck.LockAsync();
-            await AssertHelper.TimesoutAsync(() => lck.Lock());
+            await AssertHelper.TimesOutAsync(() => lck.Lock());
         }
 
         [Fact(Timeout = 1500)]
@@ -92,7 +93,7 @@ namespace CodeArt.ThreadUtils.Tests
         {
             var lck = new AsyncLock();
             using var l1 = lck.Lock();
-            await AssertHelper.TimesoutAsync(lck.LockAsync());
+            await AssertHelper.TimesOutAsync(lck.LockAsync());
         }
 
         [Fact(Timeout = 10)]

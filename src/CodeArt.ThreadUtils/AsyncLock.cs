@@ -113,40 +113,50 @@ namespace CodeArt.ThreadUtils
         /// </summary>
         private void Release()
         {
-            object? toWake = null;
-            lock(_waiters)
+            while (true)
             {
-                if (_waiters.Count > 0)
+                object? toWake = null;
+                lock (_waiters)
                 {
-                    toWake = _waiters.Dequeue();
+                    if (_waiters.Count > 0)
+                    {
+                        toWake = _waiters.Dequeue();
+                    }
+                    else
+                    {
+                        _lockTaken = false;
+                    }
                 }
-                else
+
+                switch (toWake)
                 {
-                    _lockTaken = false;
+                    case TaskCompletionSource<IDisposable> tcs:
+                        tcs.TrySetResult(_releaser);
+                        break;
+                    case TaskSourceAndRegistrationPair pair:
+                    {
+                        pair.Registration.Dispose();
+                        if (!pair.Source.TrySetCanceled())
+                        {
+                            // Task was cancelled when a cancellationToken was cancelled
+                            // Try to release another waiter if any
+                            continue;
+                        }
+
+                        break;
+                    }
+                    case ReleaserDisposable releaser:
+                    {
+                        lock (releaser)
+                        {
+                            Monitor.Pulse(releaser);
+                        }
+
+                        break;
+                    }
                 }
-            }
-            if (toWake is TaskCompletionSource<IDisposable> tcs)
-            {
-                tcs.TrySetResult(_releaser);
-                
-            }
-            else if (toWake is TaskSourceAndRegistrationPair pair)
-            {
-                pair.Registration.Dispose();
-                if(!pair.Source.TrySetCanceled())
-                {
-                    // Task was cancelled when a cancellationToken was cancelled
-                    // Try to release another waiter if any
-                    // This is tail call optimized in both 32-bit and 64-bit JIT using dotnet 5
-                    Release();
-                }
-            }
-            else if (toWake is ReleaserDisposable releaser)
-            {
-                lock(releaser)
-                {
-                    Monitor.Pulse(releaser);
-                }
+
+                break;
             }
         }
 
