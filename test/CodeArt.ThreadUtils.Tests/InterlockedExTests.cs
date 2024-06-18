@@ -14,11 +14,6 @@ public class InterlockedExTests
         var cpuCount = Environment.ProcessorCount;
         var threads = new Thread[cpuCount * 2];
 
-        static int Fn(int v)
-        {
-            return v + 1;
-        }
-            
         for (var i = 0; i < threads.Length; i++)
         {
             threads[i] = new Thread(() =>
@@ -36,6 +31,12 @@ public class InterlockedExTests
             thread.Join();
         }
         Assert.Equal(iterations * threads.Length, val);
+        return;
+
+        static int Fn(int v)
+        {
+            return v + 1;
+        }
     }
 
     [Fact]
@@ -44,14 +45,15 @@ public class InterlockedExTests
         const int initial = 0;
         var val = initial;
 
+        var res = InterlockedEx.Apply(ref val, Fn);
+        Assert.Equal(Fn(initial), res);
+        Assert.Equal(res, val);
+        return;
+
         static int Fn(int v)
         {
             return v + 1;
         }
-
-        var res = InterlockedEx.Apply(ref val, Fn);
-        Assert.Equal(Fn(initial), res);
-        Assert.Equal(res, val);
     }
 
     [Fact]
@@ -62,11 +64,6 @@ public class InterlockedExTests
         var cpuCount = Environment.ProcessorCount;
         var threads = new Thread[cpuCount * 2];
 
-        static long Fn(long v)
-        {
-            return v + 1;
-        }
-
         for (var i = 0; i < threads.Length; i++)
         {
             threads[i] = new Thread(() =>
@@ -84,6 +81,12 @@ public class InterlockedExTests
             thread.Join();
         }
         Assert.Equal(iterations * threads.Length, val);
+        return;
+
+        static long Fn(long v)
+        {
+            return v + 1;
+        }
     }
 
     [Fact]
@@ -92,13 +95,14 @@ public class InterlockedExTests
         const long initial = 0;
         var val = initial;
 
+        var res = InterlockedEx.Apply(ref val, Fn);
+        Assert.Equal(Fn(initial), res);
+        Assert.Equal(res, val);
+        return;
+
         static long Fn(long v)
         {
             return v + 1;
         }
-
-        var res = InterlockedEx.Apply(ref val, Fn);
-        Assert.Equal(Fn(initial), res);
-        Assert.Equal(res, val);
     }
 }
