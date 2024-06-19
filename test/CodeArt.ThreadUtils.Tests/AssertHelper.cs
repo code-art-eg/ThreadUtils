@@ -1,7 +1,4 @@
-﻿using System;
-using System.Threading.Tasks;
-
-namespace CodeArt.ThreadUtils.Tests;
+﻿namespace CodeArt.ThreadUtils.Tests;
 
 internal static class AssertHelper
 {

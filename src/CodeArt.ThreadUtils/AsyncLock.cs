@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
-
-namespace CodeArt.ThreadUtils;
+﻿namespace CodeArt.ThreadUtils;
 
 /// <summary>
 ///  Async lock that interacts with using statement

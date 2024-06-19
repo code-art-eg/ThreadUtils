@@ -1,8 +1,4 @@
-﻿using System;
-using System.Threading;
-using Xunit;
-
-namespace CodeArt.ThreadUtils.Tests;
+﻿namespace CodeArt.ThreadUtils.Tests;
 
 public class InterlockedExTests
 {

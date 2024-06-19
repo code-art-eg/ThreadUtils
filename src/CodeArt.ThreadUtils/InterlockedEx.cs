@@ -1,7 +1,4 @@
-﻿using System;
-using System.Threading;
-
-namespace CodeArt.ThreadUtils;
+﻿namespace CodeArt.ThreadUtils;
 
 public static class InterlockedEx
 {
