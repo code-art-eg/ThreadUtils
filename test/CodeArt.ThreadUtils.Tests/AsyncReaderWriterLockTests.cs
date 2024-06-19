@@ -452,7 +452,7 @@ public static class AsyncReaderWriterLockTests
             var rwl = new AsyncReaderWriterLock();
             var r1 = rwl.ReaderLock();
             var w1Tcs = new TaskCompletionSource();
-            await AssertHelper.TimesOutAsync(rwl.WriterLockAsync().ContinueWith(t =>
+            await AssertHelper.TimesOutAsync(rwl.WriterLockAsync().AsTask().ContinueWith(t =>
             {
                 t.Result.Dispose();
                 w1Tcs.SetResult();

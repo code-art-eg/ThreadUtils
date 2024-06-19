@@ -27,7 +27,7 @@ public class KeyedAsyncLock<TKey> where TKey : IEquatable<TKey>
     /// <param name="key">key of the lock to obtain</param>
     /// <param name="cancellationToken">Cancellation token to cancel the wait</param>
     /// <returns>returns a task that completes when the lock is acquired</returns>
-    public Task<IDisposable> LockAsync(TKey key, CancellationToken cancellationToken)
+    public ValueTask<IDisposable> LockAsync(TKey key, CancellationToken cancellationToken)
     {
         var releaser = new ReleaserDisposable(key, this);
         lock (_queues)
@@ -41,7 +41,7 @@ public class KeyedAsyncLock<TKey> where TKey : IEquatable<TKey>
             if (!status.LockTaken)
             {
                 status.LockTaken = true;
-                return Task.FromResult<IDisposable>(releaser);
+                return new ValueTask<IDisposable>(releaser);
             }
 
             var tcs = new TaskCompletionSource<IDisposable>();
@@ -55,7 +55,7 @@ public class KeyedAsyncLock<TKey> where TKey : IEquatable<TKey>
             var waiter = new AsyncWaiter(registration, tcs, releaser);
             status.Waiters.Enqueue(waiter);
 
-            return tcs.Task;
+            return new ValueTask<IDisposable>(tcs.Task);
         }
     }
 
@@ -63,7 +63,7 @@ public class KeyedAsyncLock<TKey> where TKey : IEquatable<TKey>
     /// Acquire an exclusive lock
     /// </summary>
     /// <returns>returns a task that completes when the lock is acquired</returns>
-    public Task<IDisposable> LockAsync(TKey key)
+    public ValueTask<IDisposable> LockAsync(TKey key)
     {
         var releaser = new ReleaserDisposable(key, this);
         lock (_queues)
@@ -77,12 +77,12 @@ public class KeyedAsyncLock<TKey> where TKey : IEquatable<TKey>
             if (!status.LockTaken)
             {
                 status.LockTaken = true;
-                return Task.FromResult<IDisposable>(releaser);
+                return new ValueTask<IDisposable>(releaser);
             }
 
             var tcs = new TaskCompletionSource<IDisposable>();
             status.Waiters.Enqueue(new AsyncWaiter(default, tcs, releaser));
-            return tcs.Task;
+            return new ValueTask<IDisposable>(tcs.Task);
         }
     }
 

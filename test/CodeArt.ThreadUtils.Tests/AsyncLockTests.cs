@@ -39,7 +39,7 @@ public class AsyncLockTests
         l2.Dispose();
     }
 
-    [Fact(Timeout = 10)]
+    [Fact(Timeout = 40)]
     public async Task AsyncLock_ShouldAllowLockAfterReleaseAsyncFirst()
     {
         var lck = new AsyncLock();

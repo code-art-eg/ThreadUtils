@@ -29,22 +29,23 @@ public sealed class AsyncLock
     /// </summary>
     /// <param name="cancellationToken">Cancellation token to cancel the wait</param>
     /// <returns>returns a task that completes when the lock is acquired</returns>
-    public Task<IDisposable> LockAsync(CancellationToken cancellationToken)
+    public ValueTask<IDisposable> LockAsync(CancellationToken cancellationToken)
     {
+        var releaser = new ReleaserDisposable(this);
         lock (_waiters)
         {
             if (!_lockTaken)
             {
                 _lockTaken = true;
-                return Task.FromResult<IDisposable>(new ReleaserDisposable(this));
+                return new ValueTask<IDisposable>(releaser);
             }
 
             var tcs = new TaskCompletionSource<IDisposable>();
             var registration = cancellationToken.Register(() => { tcs.TrySetCanceled(); }, false);
-            var waiter = new AsyncWaiter(registration, tcs, new ReleaserDisposable(this));
+            var waiter = new AsyncWaiter(registration, tcs, releaser);
             _waiters.Enqueue(waiter);
 
-            return tcs.Task;
+            return new ValueTask<IDisposable>(tcs.Task);
         }
     }
 
@@ -52,19 +53,20 @@ public sealed class AsyncLock
     /// Acquire an exclusive lock
     /// </summary>
     /// <returns>returns a task that completes when the lock is acquired</returns>
-    public Task<IDisposable> LockAsync()
+    public ValueTask<IDisposable> LockAsync()
     {
+        var releaser = new ReleaserDisposable(this);
         lock (_waiters)
         {
             if (!_lockTaken)
             {
                 _lockTaken = true;
-                return Task.FromResult<IDisposable>(new ReleaserDisposable(this));
+                return new ValueTask<IDisposable>(releaser);
             }
 
             var tcs = new TaskCompletionSource<IDisposable>();
-            _waiters.Enqueue(new AsyncWaiter(default, tcs, new ReleaserDisposable(this)));
-            return tcs.Task;
+            _waiters.Enqueue(new AsyncWaiter(default, tcs, releaser));
+            return new ValueTask<IDisposable>(tcs.Task);
         }
     }
 

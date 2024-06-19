@@ -61,7 +61,7 @@ public sealed class AsyncReaderWriterLock
     /// </summary>
     /// <param name="cancellationToken">Token used to cancel waiting</param>
     /// <returns>a task that completes when a reader lock is acquired.</returns>
-    public Task<IDisposable> ReaderLockAsync(CancellationToken cancellationToken)
+    public ValueTask<IDisposable> ReaderLockAsync(CancellationToken cancellationToken)
     {
         var releaser = new ReleaserDisposable(this, false);
         lock (_writersQueue)
@@ -70,14 +70,14 @@ public sealed class AsyncReaderWriterLock
             if (_status >= 0 && _writersQueue.Count == 0)
             {
                 ++_status;
-                return Task.FromResult<IDisposable>(releaser);
+                return new ValueTask<IDisposable>(releaser);
             }
 
             var tcs = new TaskCompletionSource<IDisposable>();
             var registration = cancellationToken.Register(() => tcs.TrySetCanceled(), false);
             var waiter = new ReaderWriterAsyncWaiter(registration, tcs, releaser);
             _readersQueue.Enqueue(waiter);
-            return tcs.Task;
+            return new ValueTask<IDisposable>(tcs.Task);
         }
     }
 
@@ -85,7 +85,7 @@ public sealed class AsyncReaderWriterLock
     ///     acquire a reader lock
     /// </summary>
     /// <returns>a task that completes when a reader lock is acquired.</returns>
-    public Task<IDisposable> ReaderLockAsync()
+    public ValueTask<IDisposable> ReaderLockAsync()
     {
         var releaser = new ReleaserDisposable(this, false);
         lock (_writersQueue)
@@ -94,13 +94,13 @@ public sealed class AsyncReaderWriterLock
             if (_status >= 0 && _writersQueue.Count == 0)
             {
                 ++_status;
-                return Task.FromResult<IDisposable>(releaser);
+                return new ValueTask<IDisposable>(releaser);
             }
 
             var tcs = new TaskCompletionSource<IDisposable>();
             var waiter = new ReaderWriterAsyncWaiter(default, tcs, releaser);
             _readersQueue.Enqueue(waiter);
-            return tcs.Task;
+            return new ValueTask<IDisposable>(tcs.Task);
         }
     }
 
@@ -136,7 +136,7 @@ public sealed class AsyncReaderWriterLock
     /// </summary>
     /// <param name="cancellationToken">cancellation token used to cancel the wait</param>
     /// <returns>a task that completes when a writer lock is acquired.</returns>
-    public Task<IDisposable> WriterLockAsync(CancellationToken cancellationToken)
+    public ValueTask<IDisposable> WriterLockAsync(CancellationToken cancellationToken)
     {
         var releaser = new ReleaserDisposable(this, true);
         lock (_writersQueue)
@@ -145,14 +145,14 @@ public sealed class AsyncReaderWriterLock
             if (_status == 0)
             {
                 _status = -1;
-                return Task.FromResult<IDisposable>(releaser);
+                return new ValueTask<IDisposable>(releaser);
             }
 
             var tcs = new TaskCompletionSource<IDisposable>();
             var registration = cancellationToken.Register(() => tcs.TrySetCanceled(), false);
             var waiter = new ReaderWriterAsyncWaiter(registration, tcs, releaser);
             _writersQueue.Enqueue(waiter);
-            return tcs.Task;
+            return new ValueTask<IDisposable>(tcs.Task);
         }
     }
 
@@ -160,7 +160,7 @@ public sealed class AsyncReaderWriterLock
     ///     acquire a writer lock
     /// </summary>
     /// <returns>a task that completes when a writer lock is acquired.</returns>
-    public Task<IDisposable> WriterLockAsync()
+    public ValueTask<IDisposable> WriterLockAsync()
     {
         var releaser = new ReleaserDisposable(this, true);
         lock (_writersQueue)
@@ -169,13 +169,13 @@ public sealed class AsyncReaderWriterLock
             if (_status == 0)
             {
                 _status = -1;
-                return Task.FromResult<IDisposable>(releaser);
+                return new ValueTask<IDisposable>(releaser);
             }
 
             var tcs = new TaskCompletionSource<IDisposable>();
             var waiter = new ReaderWriterAsyncWaiter(default, tcs, releaser);
             _writersQueue.Enqueue(waiter);
-            return tcs.Task;
+            return new ValueTask<IDisposable>(tcs.Task);
         }
     }
 
