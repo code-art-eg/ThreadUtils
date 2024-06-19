@@ -123,13 +123,12 @@ public sealed class AsyncLock
                 case TaskSourceAndRegistrationPair pair:
                 {
                     pair.Registration.Dispose();
-                    if (!pair.Source.TrySetCanceled())
+                    if (!pair.Source.TrySetResult(new ReleaserDisposable(this)))
                     {
                         // Task was cancelled when a cancellationToken was cancelled
                         // Try to release another waiter if any
                         continue;
                     }
-
                     break;
                 }
                 case ReleaserDisposable releaser:

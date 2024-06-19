@@ -142,4 +142,19 @@ public class AsyncLockTests
         var d3 = await l3;
         d3.Dispose();
     }
+    
+    [Fact(Timeout = 10)]
+    public async Task AsyncLock_ShouldAllowLockWithCancellationToken()
+    {
+        var lck = new AsyncLock();
+        using var cts = new CancellationTokenSource();
+        var l1 = await lck.LockAsync(cts.Token);
+        var l2T = lck.LockAsync(cts.Token);
+        
+        
+        l1.Dispose();
+
+        var l2 = await l2T;
+        l2.Dispose();
+    }
 }
