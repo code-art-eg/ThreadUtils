@@ -7,7 +7,7 @@ public static class AsyncReaderWriterLockTests
     public class WhenCanceledAsync
     {
         [Fact(Timeout = 10)]
-        public async Task ShouldCancelReadLockAndAllowFurtherLocks()
+        public async Task AsyncReaderWriterLock_ShouldCancelReadLockAndAllowFurtherLocks()
         {
             var rwl = new AsyncReaderWriterLock();
             {
@@ -24,7 +24,7 @@ public static class AsyncReaderWriterLockTests
         }
 
         [Fact(Timeout = 10)]
-        public async Task ShouldCancelWriteLockAndAllowFurtherLocks()
+        public async Task AsyncReaderWriterLock_ShouldCancelWriteLockAndAllowFurtherLocks()
         {
             var rwl = new AsyncReaderWriterLock();
             {
@@ -44,14 +44,14 @@ public static class AsyncReaderWriterLockTests
     public class WhenUnlockedAsync
     {
         [Fact(Timeout = 10)]
-        public async Task AllowsSingleWriter()
+        public async Task AsyncReaderWriterLock_ShouldAllowsSingleWriter()
         {
             var rwl = new AsyncReaderWriterLock();
             using var _ = await rwl.WriterLockAsync();
         }
 
         [Fact(Timeout = 10)]
-        public async Task AllowsMultipleReaders()
+        public async Task AsyncReaderWriterLock_ShouldAllowsMultipleReaders()
         {
             var rwl = new AsyncReaderWriterLock();
             using var r1 = await rwl.ReaderLockAsync();
@@ -62,7 +62,7 @@ public static class AsyncReaderWriterLockTests
     public class WhenUnlockedMix
     {
         [Fact(Timeout = 10)]
-        public async Task AllowsMultipleReadersSyncFirst()
+        public async Task AsyncReaderWriterLock_ShouldAllowsMultipleReadersSyncFirst()
         {
             var rwl = new AsyncReaderWriterLock();
             using var r1 = rwl.ReaderLock();
@@ -70,7 +70,7 @@ public static class AsyncReaderWriterLockTests
         }
 
         [Fact(Timeout = 10)]
-        public async Task AllowsMultipleReadersAsyncFirst()
+        public async Task AsyncReaderWriterLock_ShouldAllowsMultipleReadersAsyncFirst()
         {
             var rwl = new AsyncReaderWriterLock();
             using var r1 = await rwl.ReaderLockAsync();
@@ -81,14 +81,14 @@ public static class AsyncReaderWriterLockTests
     public class WhenUnlockedSync
     {
         [Fact(Timeout = 10)]
-        public void AllowsSingleWriter()
+        public void AsyncReaderWriterLock_ShouldAllowsSingleWriter()
         {
             var rwl = new AsyncReaderWriterLock();
             using var w1 = rwl.WriterLock();
         }
 
         [Fact(Timeout = 10)]
-        public void AllowsMultipleReaders()
+        public void AsyncReaderWriterLock_ShouldAllowsMultipleReaders()
         {
             var rwl = new AsyncReaderWriterLock();
             using var r1 = rwl.ReaderLock();
@@ -99,7 +99,7 @@ public static class AsyncReaderWriterLockTests
     public class WhenWriterLockedAsync
     {
         [Fact(Timeout = 1500)]
-        public async Task PreventsReaders()
+        public async Task AsyncReaderWriterLock_ShouldPreventsReaders()
         {
             var rwl = new AsyncReaderWriterLock();
             var w1 = await rwl.WriterLockAsync();
@@ -111,7 +111,7 @@ public static class AsyncReaderWriterLockTests
         }
 
         [Fact(Timeout = 1500)]
-        public async Task PreventsWriters()
+        public async Task AsyncReaderWriterLock_ShouldPreventsWriters()
         {
             var rwl = new AsyncReaderWriterLock();
             var w1 = await rwl.WriterLockAsync();
@@ -123,7 +123,7 @@ public static class AsyncReaderWriterLockTests
         }
 
         [Fact(Timeout = 1500)]
-        public async Task AwakeAllReadersAtOnce()
+        public async Task AsyncReaderWriterLock_ShouldAwakeAllReadersAtOnce()
         {
             var rwl = new AsyncReaderWriterLock();
             var w1 = await rwl.WriterLockAsync();
@@ -155,7 +155,7 @@ public static class AsyncReaderWriterLockTests
     public class WhenWriterLockedMix
     {
         [Fact(Timeout = 1500)]
-        public async Task PreventsReadersSyncFirst()
+        public async Task AsyncReaderWriterLock_ShouldPreventsReadersSyncFirst()
         {
             var rwl = new AsyncReaderWriterLock();
             var w1 = rwl.WriterLock();
@@ -167,7 +167,7 @@ public static class AsyncReaderWriterLockTests
         }
 
         [Fact(Timeout = 1500)]
-        public async Task PreventsReadersAsyncFirst()
+        public async Task AsyncReaderWriterLock_ShouldPreventsReadersAsyncFirst()
         {
             var rwl = new AsyncReaderWriterLock();
             var w1 = await rwl.WriterLockAsync();
@@ -182,7 +182,7 @@ public static class AsyncReaderWriterLockTests
         }
 
         [Fact(Timeout = 1500)]
-        public async Task PreventsWritersSyncFirst()
+        public async Task AsyncReaderWriterLock_ShouldPreventsWritersSyncFirst()
         {
             var rwl = new AsyncReaderWriterLock();
             var w1 = rwl.WriterLock();
@@ -194,7 +194,7 @@ public static class AsyncReaderWriterLockTests
         }
 
         [Fact(Timeout = 1500)]
-        public async Task PreventsWritersAsyncFirst()
+        public async Task AsyncReaderWriterLock_ShouldPreventsWritersAsyncFirst()
         {
             var rwl = new AsyncReaderWriterLock();
             var w1 = await rwl.WriterLockAsync();
@@ -209,7 +209,7 @@ public static class AsyncReaderWriterLockTests
         }
 
         [Fact(Timeout = 1500)]
-        public async Task AwakeAllReadersAtOnceSyncWriter()
+        public async Task AsyncReaderWriterLock_ShouldAwakeAllReadersAtOnceSyncWriter()
         {
             var rwl = new AsyncReaderWriterLock();
             var w1 = rwl.WriterLock();
@@ -238,7 +238,7 @@ public static class AsyncReaderWriterLockTests
         }
 
         [Fact(Timeout = 1500)]
-        public async Task AwakeAllReadersAtOnceAsyncWriter()
+        public async Task AsyncReaderWriterLock_ShouldAwakeAllReadersAtOnceAsyncWriter()
         {
             var rwl = new AsyncReaderWriterLock();
             var w1 = await rwl.WriterLockAsync();
@@ -267,7 +267,7 @@ public static class AsyncReaderWriterLockTests
         }
 
         [Fact(Timeout = 100)]
-        public async Task ShouldNotStarveSyncWriters()
+        public async Task AsyncReaderWriterLock_ShouldNotStarveSyncWriters()
         {
             var rwl = new AsyncReaderWriterLock();
             var w1 = await rwl.WriterLockAsync();
@@ -284,7 +284,7 @@ public static class AsyncReaderWriterLockTests
 
 
         [Fact(Timeout = 100)]
-        public async Task ShouldNotStarveAsyncWriters()
+        public async Task AsyncReaderWriterLock_ShouldNotStarveAsyncWriters()
         {
             var rwl = new AsyncReaderWriterLock();
             var w1 = rwl.WriterLock();
@@ -306,7 +306,7 @@ public static class AsyncReaderWriterLockTests
     public class WhenWriterLockedSync
     {
         [Fact(Timeout = 1500)]
-        public async Task PreventsReaders()
+        public async Task AsyncReaderWriterLock_ShouldPreventsReaders()
         {
             var rwl = new AsyncReaderWriterLock();
             var w1 = rwl.WriterLock();
@@ -321,7 +321,7 @@ public static class AsyncReaderWriterLockTests
         }
 
         [Fact(Timeout = 1500)]
-        public async Task PreventsWriters()
+        public async Task AsyncReaderWriterLock_ShouldPreventsWriters()
         {
             var rwl = new AsyncReaderWriterLock();
             var w1 = rwl.WriterLock();
@@ -336,7 +336,7 @@ public static class AsyncReaderWriterLockTests
         }
 
         [Fact(Timeout = 1500)]
-        public async Task AwakeAllReadersAtOnce()
+        public async Task AsyncReaderWriterLock_ShouldAwakeAllReadersAtOnce()
         {
             var rwl = new AsyncReaderWriterLock();
             var w1 = rwl.WriterLock();
@@ -368,7 +368,7 @@ public static class AsyncReaderWriterLockTests
     public class WhenReaderLockedAsync
     {
         [Fact(Timeout = 1500)]
-        public async Task PreventWriters()
+        public async Task AsyncReaderWriterLock_ShouldPreventWriters()
         {
             var rwl = new AsyncReaderWriterLock();
             var r1 = await rwl.ReaderLockAsync();
@@ -380,7 +380,7 @@ public static class AsyncReaderWriterLockTests
         }
 
         [Fact(Timeout = 10)]
-        public async Task WritersAreNotStarved()
+        public async Task AsyncReaderWriterLock_ShouldWritersAreNotStarved()
         {
             var rwl = new AsyncReaderWriterLock();
             var r1 = await rwl.ReaderLockAsync();
@@ -402,7 +402,7 @@ public static class AsyncReaderWriterLockTests
     public class WhenReaderLockedSync
     {
         [Fact(Timeout = 1500)]
-        public async Task PreventWriters()
+        public async Task AsyncReaderWriterLock_ShouldPreventWriters()
         {
             var rwl = new AsyncReaderWriterLock();
             var r1 = rwl.ReaderLock();
@@ -417,7 +417,7 @@ public static class AsyncReaderWriterLockTests
         }
 
         [Fact(Timeout = 10)]
-        public async Task WritersAreNotStarved()
+        public async Task AsyncReaderWriterLock_ShouldWritersAreNotStarved()
         {
             var rwl = new AsyncReaderWriterLock();
             var r1 = rwl.ReaderLock();
@@ -447,7 +447,7 @@ public static class AsyncReaderWriterLockTests
     public class WhenReaderLockedMix
     {
         [Fact(Timeout = 1500)]
-        public async Task PreventWritersAsyncWriter()
+        public async Task AsyncReaderWriterLock_ShouldPreventWritersAsyncWriter()
         {
             var rwl = new AsyncReaderWriterLock();
             var r1 = rwl.ReaderLock();
@@ -462,7 +462,7 @@ public static class AsyncReaderWriterLockTests
         }
 
         [Fact(Timeout = 1500)]
-        public async Task PreventWritersSyncWriter()
+        public async Task AsyncReaderWriterLock_ShouldPreventWritersSyncWriter()
         {
             var rwl = new AsyncReaderWriterLock();
             var r1 = await rwl.ReaderLockAsync();
@@ -477,7 +477,7 @@ public static class AsyncReaderWriterLockTests
         }
 
         [Fact(Timeout = 10)]
-        public async Task WritersAreNotStarvedSyncWriter()
+        public async Task AsyncReaderWriterLock_ShouldWritersAreNotStarvedSyncWriter()
         {
             var rwl = new AsyncReaderWriterLock();
             var r1 = rwl.ReaderLock();
@@ -504,7 +504,7 @@ public static class AsyncReaderWriterLockTests
         }
 
         [Fact(Timeout = 10)]
-        public async Task WritersAreNotStarvedAsyncWriter()
+        public async Task AsyncReaderWriterLock_ShouldWritersAreNotStarvedAsyncWriter()
         {
             var rwl = new AsyncReaderWriterLock();
             var r1 = rwl.ReaderLock();
@@ -531,7 +531,7 @@ public static class AsyncReaderWriterLockTests
         }
 
         [Fact(Timeout = 100)]
-        public async Task ShouldNotStarveSyncWriters()
+        public async Task AsyncReaderWriterLock_ShouldNotStarveSyncWriters()
         {
             var rwl = new AsyncReaderWriterLock();
             var r1 = await rwl.ReaderLockAsync();
@@ -548,7 +548,7 @@ public static class AsyncReaderWriterLockTests
 
 
         [Fact(Timeout = 100)]
-        public async Task ShouldNotStarveAsyncWriters()
+        public async Task AsyncReaderWriterLock_ShouldNotStarveAsyncWriters()
         {
             var rwl = new AsyncReaderWriterLock();
             var r1 = rwl.ReaderLock();

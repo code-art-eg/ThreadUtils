@@ -5,21 +5,21 @@ namespace CodeArt.ThreadUtils.Tests;
 public class AsyncLockTests
 {
     [Fact(Timeout = 10)]
-    public async Task AllowSingleLockerAsync()
+    public async Task AsyncLock_ShouldAllowSingleLockerAsync()
     {
         var lck = new AsyncLock();
         using var l1 = await lck.LockAsync();
     }
 
     [Fact(Timeout = 10)]
-    public void AllowSingleLocker()
+    public void AsyncLock_ShouldAllowSingleLocker()
     {
         var lck = new AsyncLock();
         using var l1 = lck.Lock();
     }
 
     [Fact(Timeout = 10)]
-    public void AllowLockAfterRelease()
+    public void AsyncLock_ShouldAllowLockAfterRelease()
     {
         var lck = new AsyncLock();
         var l1 = lck.Lock();
@@ -29,7 +29,7 @@ public class AsyncLockTests
     }
 
     [Fact(Timeout = 10)]
-    public async Task AllowLockAfterReleaseAsync()
+    public async Task AsyncLock_ShouldAllowLockAfterReleaseAsync()
     {
         var lck = new AsyncLock();
         var l1 = await lck.LockAsync();
@@ -40,7 +40,7 @@ public class AsyncLockTests
     }
 
     [Fact(Timeout = 10)]
-    public async Task AllowLockAfterReleaseAsyncFirst()
+    public async Task AsyncLock_ShouldAllowLockAfterReleaseAsyncFirst()
     {
         var lck = new AsyncLock();
         var l1 = await lck.LockAsync();
@@ -51,7 +51,7 @@ public class AsyncLockTests
     }
 
     [Fact(Timeout = 10)]
-    public async Task AllowLockAfterReleaseSyncFirst()
+    public async Task AsyncLock_ShouldAllowLockAfterReleaseSyncFirst()
     {
         var lck = new AsyncLock();
         var l1 = lck.Lock();
@@ -62,7 +62,7 @@ public class AsyncLockTests
     }
 
     [Fact(Timeout = 1500)]
-    public async Task PreventSecondLocker()
+    public async Task AsyncLock_ShouldPreventSecondLocker()
     {
         var lck = new AsyncLock();
         using var l1 = lck.Lock();
@@ -70,7 +70,7 @@ public class AsyncLockTests
     }
 
     [Fact(Timeout = 1500)]
-    public async Task PreventSecondLockerAsync()
+    public async Task AsyncLock_ShouldPreventSecondLockerAsync()
     {
         var lck = new AsyncLock();
         using var l1 = await lck.LockAsync();
@@ -78,7 +78,7 @@ public class AsyncLockTests
     }
 
     [Fact(Timeout = 1500)]
-    public async Task PreventSecondLockerAsyncFirst()
+    public async Task AsyncLock_ShouldPreventSecondLockerAsyncFirst()
     {
         var lck = new AsyncLock();
         using var l1 = await lck.LockAsync();
@@ -86,7 +86,7 @@ public class AsyncLockTests
     }
 
     [Fact(Timeout = 1500)]
-    public async Task PreventSecondLockerSyncFirst()
+    public async Task AsyncLock_ShouldPreventSecondLockerSyncFirst()
     {
         var lck = new AsyncLock();
         using var l1 = lck.Lock();
@@ -94,7 +94,7 @@ public class AsyncLockTests
     }
 
     [Fact(Timeout = 10)]
-    public async Task WouldCancelLockAndAllowOtherLocks()
+    public async Task AsyncLock_ShouldWouldCancelLockAndAllowOtherLocks()
     {
         var lck = new AsyncLock();
         {
@@ -111,7 +111,7 @@ public class AsyncLockTests
     }
 
     [Fact(Timeout = 1500)]
-    public async Task PreventMultipleDisposeCalls()
+    public async Task AsyncLock_ShouldPreventMultipleDisposeCalls()
     {
         var lck = new AsyncLock();
 
@@ -127,7 +127,7 @@ public class AsyncLockTests
     }
 
     [Fact(Timeout = 10)]
-    public async Task ThreeLocks()
+    public async Task AsyncLock_ShouldThreeLocks()
     {
         var lck = new AsyncLock();
 

@@ -3,7 +3,7 @@
 public class InterlockedExTests
 {
     [Fact]
-    public void TestIntApply()
+    public void IntApply_ShouldApplySafely()
     {
         var val = 0;
         const int iterations = 100_000;
@@ -36,7 +36,7 @@ public class InterlockedExTests
     }
 
     [Fact]
-    public void TestIntApplyReturnValue()
+    public void IntApply_ShouldReturnAppliedValue()
     {
         const int initial = 0;
         var val = initial;
@@ -53,7 +53,7 @@ public class InterlockedExTests
     }
 
     [Fact]
-    public void TestLongApply()
+    public void LongApply_ShouldApplySafely()
     {
         long val = 0;
         const int iterations = 100_000;
@@ -86,7 +86,7 @@ public class InterlockedExTests
     }
 
     [Fact]
-    public void TestLongApplyReturnValue()
+    public void LongApply_ShouldReturnAppliedValue()
     {
         const long initial = 0;
         var val = initial;

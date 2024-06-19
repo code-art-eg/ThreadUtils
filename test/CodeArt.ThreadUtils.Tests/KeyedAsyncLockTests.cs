@@ -5,21 +5,21 @@ namespace CodeArt.ThreadUtils.Tests;
 public class KeyedAsyncLockTests
 {
     [Fact(Timeout = 10)]
-    public async Task AllowSingleLockerAsync()
+    public async Task KeyedAsyncLock_ShouldAllowSingleLockerAsync()
     {
         var lck = new KeyedAsyncLock<string>();
         using var l1 = await lck.LockAsync("x");
     }
 
     [Fact(Timeout = 10)]
-    public void AllowSingleLocker()
+    public void KeyedAsyncLock_ShouldAllowSingleLocker()
     {
         var lck = new KeyedAsyncLock<string>();
         using var l1 = lck.Lock("x");
     }
 
     [Fact(Timeout = 10)]
-    public void AllowLockAfterRelease()
+    public void KeyedAsyncLock_ShouldAllowLockAfterRelease()
     {
         var lck = new KeyedAsyncLock<string>();
         var l1 = lck.Lock("x");
@@ -29,7 +29,7 @@ public class KeyedAsyncLockTests
     }
 
     [Fact(Timeout = 10)]
-    public async Task AllowLockAfterReleaseAsync()
+    public async Task KeyedAsyncLock_ShouldAllowLockAfterReleaseAsync()
     {
         var lck = new KeyedAsyncLock<string>();
         var l1 = await lck.LockAsync("x");
@@ -40,7 +40,7 @@ public class KeyedAsyncLockTests
     }
 
     [Fact(Timeout = 10)]
-    public async Task AllowLockAfterReleaseAsyncFirst()
+    public async Task KeyedAsyncLock_ShouldAllowLockAfterReleaseAsyncFirst()
     {
         var lck = new KeyedAsyncLock<string>();
         var l1 = await lck.LockAsync("x");
@@ -51,7 +51,7 @@ public class KeyedAsyncLockTests
     }
 
     [Fact(Timeout = 10)]
-    public async Task AllowLockAfterReleaseSyncFirst()
+    public async Task KeyedAsyncLock_ShouldAllowLockAfterReleaseSyncFirst()
     {
         var lck = new KeyedAsyncLock<string>();
         var l1 = lck.Lock("x");
@@ -62,7 +62,7 @@ public class KeyedAsyncLockTests
     }
 
     [Fact(Timeout = 1500)]
-    public async Task PreventSecondLocker()
+    public async Task KeyedAsyncLock_ShouldPreventSecondLocker()
     {
         var lck = new KeyedAsyncLock<string>();
         using var l1 = lck.Lock("x");
@@ -70,7 +70,7 @@ public class KeyedAsyncLockTests
     }
 
     [Fact(Timeout = 1500)]
-    public async Task PreventSecondLockerAsync()
+    public async Task KeyedAsyncLock_ShouldPreventSecondLockerAsync()
     {
         var lck = new KeyedAsyncLock<string>();
         using var l1 = await lck.LockAsync("x");
@@ -78,7 +78,7 @@ public class KeyedAsyncLockTests
     }
 
     [Fact(Timeout = 1500)]
-    public async Task PreventSecondLockerAsyncFirst()
+    public async Task KeyedAsyncLock_ShouldPreventSecondLockerAsyncFirst()
     {
         var lck = new KeyedAsyncLock<string>();
         using var l1 = await lck.LockAsync("x");
@@ -86,7 +86,7 @@ public class KeyedAsyncLockTests
     }
 
     [Fact(Timeout = 1500)]
-    public async Task PreventSecondLockerSyncFirst()
+    public async Task KeyedAsyncLock_ShouldPreventSecondLockerSyncFirst()
     {
         var lck = new KeyedAsyncLock<string>();
         using var l1 = lck.Lock("x");
@@ -94,7 +94,7 @@ public class KeyedAsyncLockTests
     }
 
     [Fact(Timeout = 10)]
-    public async Task WouldCancelLockAndAllowOtherLocks()
+    public async Task KeyedAsyncLock_ShouldWouldCancelLockAndAllowOtherLocks()
     {
         var lck = new KeyedAsyncLock<string>();
         {
@@ -111,7 +111,7 @@ public class KeyedAsyncLockTests
     }
 
     [Fact(Timeout = 1500)]
-    public async Task PreventMultipleDisposeCalls()
+    public async Task KeyedAsyncLock_ShouldPreventMultipleDisposeCalls()
     {
         var lck = new KeyedAsyncLock<string>();
 
@@ -127,7 +127,7 @@ public class KeyedAsyncLockTests
     }
 
     [Fact(Timeout = 10)]
-    public async Task ThreeLocks()
+    public async Task KeyedAsyncLock_ShouldAllowThreeLocks()
     {
         var lck = new KeyedAsyncLock<string>();
 
@@ -144,7 +144,7 @@ public class KeyedAsyncLockTests
     }
 
     [Fact(Timeout = 10)]
-    public async Task MultipleKeys()
+    public async Task KeyedAsyncLock_ShouldMultipleKeys()
     {
         var lck = new KeyedAsyncLock<string>();
 
@@ -153,7 +153,7 @@ public class KeyedAsyncLockTests
     }
 
     [Fact(Timeout = 10)]
-    public async Task MultipleKeysTwice()
+    public async Task KeyedAsyncLock_ShouldAllowMultipleKeysTwice()
     {
         var lck = new KeyedAsyncLock<string>();
 
@@ -169,7 +169,7 @@ public class KeyedAsyncLockTests
     }
 
     [Fact(Timeout = 10)]
-    public async Task LockWithCancellationTwice()
+    public async Task KeyedAsyncLock_ShouldLockWithCancellationTwice()
     {
         var lck = new KeyedAsyncLock<string>();
 
@@ -183,7 +183,7 @@ public class KeyedAsyncLockTests
     }
 
     [Fact(Timeout = 10)]
-    public async Task LockWithCancellationThriceCancelledTask()
+    public async Task KeyedAsyncLock_ShouldLockWithCancellationThriceCancelledTask()
     {
         var lck = new KeyedAsyncLock<string>();
         var cts = new CancellationTokenSource();
