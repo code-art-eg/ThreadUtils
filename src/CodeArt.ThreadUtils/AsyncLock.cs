@@ -2,6 +2,8 @@
 
 /// <summary>
 ///  Async lock that interacts with using statement
+/// This is based on https://devblogs.microsoft.com/pfxteam/building-async-coordination-primitives-part-6-asynclock/
+/// This class allows having both synchronous and asynchronous lock acquisition
 /// </summary>
 public sealed class AsyncLock
 {
@@ -16,22 +18,10 @@ public sealed class AsyncLock
     private bool _lockTaken;
 
     /// <summary>
-    /// When disposed the releaser would release the lock
-    /// </summary>
-    private readonly IDisposable _releaser;
-
-    /// <summary>
-    /// Releaser task
-    /// </summary>
-    private readonly Task<IDisposable> _releaserTask;
-
-    /// <summary>
     /// Constructor. Creates a new instance of <see cref="AsyncLock"/> class
     /// </summary>
     public AsyncLock()
     {
-        _releaser = new ReleaserDisposable(this);
-        _releaserTask = Task.FromResult(_releaser);
     }
 
     /// <summary>
@@ -41,21 +31,19 @@ public sealed class AsyncLock
     /// <returns>returns a task that completes when the lock is acquired</returns>
     public Task<IDisposable> LockAsync(CancellationToken cancellationToken)
     {
-        lock(_waiters)
+        lock (_waiters)
         {
             if (!_lockTaken)
             {
                 _lockTaken = true;
-                return _releaserTask;
+                return Task.FromResult<IDisposable>(new ReleaserDisposable(this));
             }
+
             var tcs = new TaskCompletionSource<IDisposable>();
-            var registration = cancellationToken.Register(() =>
-            {
-                tcs.TrySetCanceled();
-            }, false);
+            var registration = cancellationToken.Register(() => { tcs.TrySetCanceled(); }, false);
             var pair = new TaskSourceAndRegistrationPair(registration, tcs);
             _waiters.Enqueue(pair);
-                
+
             return tcs.Task;
         }
     }
@@ -66,13 +54,14 @@ public sealed class AsyncLock
     /// <returns>returns a task that completes when the lock is acquired</returns>
     public Task<IDisposable> LockAsync()
     {
-        lock(_waiters)
+        lock (_waiters)
         {
             if (!_lockTaken)
             {
                 _lockTaken = true;
-                return _releaserTask;
+                return Task.FromResult<IDisposable>(new ReleaserDisposable(this));
             }
+
             var tcs = new TaskCompletionSource<IDisposable>();
             _waiters.Enqueue(tcs);
             return tcs.Task;
@@ -91,16 +80,19 @@ public sealed class AsyncLock
             if (!_lockTaken)
             {
                 _lockTaken = true;
-                return _releaser;
+                return new ReleaserDisposable(this);
             }
+
             newReleaser = new ReleaserDisposable(this);
             _waiters.Enqueue(newReleaser);
         }
-        lock(newReleaser)
+
+        lock (newReleaser)
         {
             Monitor.Wait(newReleaser);
         }
-        return _releaser;
+
+        return newReleaser;
     }
 
     /// <summary>
@@ -126,7 +118,7 @@ public sealed class AsyncLock
             switch (toWake)
             {
                 case TaskCompletionSource<IDisposable> tcs:
-                    tcs.TrySetResult(_releaser);
+                    tcs.TrySetResult(new ReleaserDisposable(this));
                     break;
                 case TaskSourceAndRegistrationPair pair:
                 {
@@ -156,6 +148,7 @@ public sealed class AsyncLock
     }
 
     #region Nested type: Releaser
+
     /// <summary>
     ///     a releaser helper that implements IDisposable to support
     ///     using statement
@@ -167,35 +160,37 @@ public sealed class AsyncLock
         /// </summary>
         private readonly AsyncLock _toRelease;
 
+        private int _disposed;
+
         internal ReleaserDisposable(AsyncLock toRelease)
         {
             _toRelease = toRelease;
         }
 
         #region IDisposable Members
+
         /// <summary>
         ///     Dispose. releases the lock
         /// </summary>
         public void Dispose()
         {
-            _toRelease.Release();
+            if (Interlocked.CompareExchange(ref _disposed, 1, 0) == 0) _toRelease.Release();
         }
+
         #endregion
     }
 
     #endregion
 
     #region Nested type: TaskSourceAndRegistrationPair
-    private sealed class TaskSourceAndRegistrationPair
-    {
-        public TaskSourceAndRegistrationPair(CancellationTokenRegistration registration, TaskCompletionSource<IDisposable> source)
-        {
-            Registration = registration;
-            Source = source;
-        }
 
-        public CancellationTokenRegistration Registration { get; }
-        public TaskCompletionSource<IDisposable> Source { get; }
+    private sealed class TaskSourceAndRegistrationPair(
+        CancellationTokenRegistration registration,
+        TaskCompletionSource<IDisposable> source)
+    {
+        public CancellationTokenRegistration Registration { get; } = registration;
+        public TaskCompletionSource<IDisposable> Source { get; } = source;
     }
+
     #endregion
 }
