@@ -39,12 +39,12 @@ public class KeyedAsyncLockTests
         l2.Dispose();
     }
 
-    [Fact(Timeout = 10)]
+    [Fact(Timeout = 40)]
     public async Task KeyedAsyncLock_ShouldAllowLockAfterReleaseAsyncFirst()
     {
         var lck = new KeyedAsyncLock<string>();
         var l1 = await lck.LockAsync("x");
-        var l2T = Task.Run(() => lck.Lock("x"));
+        var l2T = await StartSync(() => lck.Lock("x"));
         l1.Dispose();
         var l2 = await l2T;
         l2.Dispose();

@@ -1,6 +1,6 @@
 ﻿namespace CodeArt.ThreadUtils;
 
-internal class TaskSourceAndRegistrationPair(CancellationTokenRegistration registration,
+internal class AsyncWaiter(CancellationTokenRegistration registration,
     TaskCompletionSource<IDisposable> source,
     IDisposable releaser): IWaiter
 {

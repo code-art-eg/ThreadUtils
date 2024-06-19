@@ -41,8 +41,8 @@ public sealed class AsyncLock
 
             var tcs = new TaskCompletionSource<IDisposable>();
             var registration = cancellationToken.Register(() => { tcs.TrySetCanceled(); }, false);
-            var pair = new TaskSourceAndRegistrationPair(registration, tcs, new ReleaserDisposable(this));
-            _waiters.Enqueue(pair);
+            var waiter = new AsyncWaiter(registration, tcs, new ReleaserDisposable(this));
+            _waiters.Enqueue(waiter);
 
             return tcs.Task;
         }
@@ -63,7 +63,7 @@ public sealed class AsyncLock
             }
 
             var tcs = new TaskCompletionSource<IDisposable>();
-            _waiters.Enqueue(new TaskSourceAndRegistrationPair(default, tcs, new ReleaserDisposable(this)));
+            _waiters.Enqueue(new AsyncWaiter(default, tcs, new ReleaserDisposable(this)));
             return tcs.Task;
         }
     }

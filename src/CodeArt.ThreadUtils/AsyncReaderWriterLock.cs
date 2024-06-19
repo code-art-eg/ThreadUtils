@@ -8,34 +8,14 @@
 public sealed class AsyncReaderWriterLock
 {
     /// <summary>
-    ///     reader lock releaser
+    /// queue of waiting writers. also serves as the sync root for this object
     /// </summary>
-    private readonly IDisposable _readerReleaser;
+    private readonly Queue<IReaderWriterLockWaiter> _writersQueue = new();
 
     /// <summary>
-    ///     reader lock releaser task
+    ///   queue of waiting readers
     /// </summary>
-    private readonly Task<IDisposable> _readerReleaserTask;
-
-    /// <summary>
-    ///     queue of waiting writers
-    /// </summary>
-    private readonly Queue<object> _waitingWriters = new();
-
-    /// <summary>
-    ///     writer lock releaser
-    /// </summary>
-    private readonly IDisposable _writerReleaser;
-
-    /// <summary>
-    ///     writer lock releaser task
-    /// </summary>
-    private readonly Task<IDisposable> _writerReleaserTask;
-
-    /// <summary>
-    ///     number readers waiting
-    /// </summary>
-    private int _readersWaiting;
+    private readonly Queue<IReaderWriterLockWaiter> _readersQueue = new();
 
     /// <summary>
     ///     status. O means no one has the lock. -1 a writer has the lock, +ve is the number of readers having the lock.
@@ -43,19 +23,10 @@ public sealed class AsyncReaderWriterLock
     private int _status;
 
     /// <summary>
-    ///     queue of waiting readers
-    /// </summary>
-    private TaskCompletionSource<IDisposable> _waitingReader = new();
-
-    /// <summary>
     ///     constructor
     /// </summary>
     public AsyncReaderWriterLock()
     {
-        _readerReleaser = new ReleaserDisposable(this, false);
-        _readerReleaserTask = Task.FromResult(_readerReleaser);
-        _writerReleaser = new ReleaserDisposable(this, true);
-        _writerReleaserTask = Task.FromResult(_writerReleaser);
     }
 
     /// <summary>
@@ -64,15 +35,25 @@ public sealed class AsyncReaderWriterLock
     /// <returns>A releaser that releases the lock</returns>
     public IDisposable ReaderLock()
     {
-        lock (_waitingWriters)
+        var releaser = new ReleaserDisposable(this, false);
+        lock (_writersQueue)
         {
-            while (_status < 0 || _waitingWriters.Count != 0)
+            // to avoid starvation of writers we only allow readers to acquire the lock if there are no writers waiting
+            if (_status >= 0 && _writersQueue.Count == 0)
             {
-                Monitor.Wait(_waitingWriters);
+                ++_status;
+                return releaser;
             }
-            ++_status;
+
+            _readersQueue.Enqueue(releaser);
         }
-        return _readerReleaser;
+
+        lock (releaser)
+        {
+            Monitor.Wait(releaser);
+        }
+
+        return releaser;
     }
 
     /// <summary>
@@ -82,43 +63,21 @@ public sealed class AsyncReaderWriterLock
     /// <returns>a task that completes when a reader lock is acquired.</returns>
     public Task<IDisposable> ReaderLockAsync(CancellationToken cancellationToken)
     {
-        lock (_waitingWriters)
+        var releaser = new ReleaserDisposable(this, false);
+        lock (_writersQueue)
         {
-            if (_status >= 0
-                && _waitingWriters.Count == 0)
+            // to avoid starvation of writers we only allow readers to acquire the lock if there are no writers waiting
+            if (_status >= 0 && _writersQueue.Count == 0)
             {
                 ++_status;
-                return _readerReleaserTask;
+                return Task.FromResult<IDisposable>(releaser);
             }
-            ++_readersWaiting;
-            var cancelTaskSource = new TaskCompletionSource<bool>();
-            var registration = cancellationToken.Register(() =>
-            {
-                cancelTaskSource.SetResult(true);
-            }, false);
-            // The MethodSupportsCancellation is a false positive since cancelTaskSource is completed when the cancellation token is cancelled.
-            // ReSharper disable MethodSupportsCancellation
-            var resultTask = Task.WhenAny(cancelTaskSource.Task, _waitingReader.Task)
-                .ContinueWith(t =>
-                {
-                    registration.Dispose();
-                    if (t.Result != cancelTaskSource.Task)
-                    {
-                        // Reader acquired.
-                        return _waitingReader.Task.Result;
-                    }
 
-                    // Task was cancelled before the read is acquired.
-                    // Dispose the reader as soon as the lock is acquired.
-                    // TODO: The lock would be released in a continuation following acquiring the lock. Consider a way to remove the reader from waiting readers without lock acquisition.
-                    _waitingReader.Task.ContinueWith(wt =>
-                    {
-                        wt.Result.Dispose();
-                    });
-                    throw new TaskCanceledException();
-                });
-            // ReSharper restore MethodSupportsCancellation
-            return resultTask;
+            var tcs = new TaskCompletionSource<IDisposable>();
+            var registration = cancellationToken.Register(() => tcs.TrySetCanceled(), false);
+            var waiter = new ReaderWriterAsyncWaiter(registration, tcs, releaser);
+            _readersQueue.Enqueue(waiter);
+            return tcs.Task;
         }
     }
 
@@ -128,16 +87,20 @@ public sealed class AsyncReaderWriterLock
     /// <returns>a task that completes when a reader lock is acquired.</returns>
     public Task<IDisposable> ReaderLockAsync()
     {
-        lock (_waitingWriters)
+        var releaser = new ReleaserDisposable(this, false);
+        lock (_writersQueue)
         {
-            if (_status >= 0
-                && _waitingWriters.Count == 0)
+            // to avoid starvation of writers we only allow readers to acquire the lock if there are no writers waiting 
+            if (_status >= 0 && _writersQueue.Count == 0)
             {
                 ++_status;
-                return _readerReleaserTask;
+                return Task.FromResult<IDisposable>(releaser);
             }
-            ++_readersWaiting;
-            return _waitingReader.Task;
+
+            var tcs = new TaskCompletionSource<IDisposable>();
+            var waiter = new ReaderWriterAsyncWaiter(default, tcs, releaser);
+            _readersQueue.Enqueue(waiter);
+            return tcs.Task;
         }
     }
 
@@ -147,22 +110,25 @@ public sealed class AsyncReaderWriterLock
     /// <returns>a releaser that releases the lock.</returns>
     public IDisposable WriterLock()
     {
-        ReleaserDisposable newReleaser;
-        lock (_waitingWriters)
+        var releaser = new ReleaserDisposable(this, true);
+        lock (_writersQueue)
         {
+            // if no one has the lock, we can take it
             if (_status == 0)
             {
                 _status = -1;
-                return _writerReleaser;
+                return releaser;
             }
-            newReleaser = new ReleaserDisposable(this, true);
-            _waitingWriters.Enqueue(newReleaser);
+
+            _writersQueue.Enqueue(releaser);
         }
-        lock (newReleaser)
+
+        lock (releaser)
         {
-            Monitor.Wait(newReleaser);
+            Monitor.Wait(releaser);
         }
-        return _writerReleaser;
+
+        return releaser;
     }
 
     /// <summary>
@@ -172,21 +138,21 @@ public sealed class AsyncReaderWriterLock
     /// <returns>a task that completes when a writer lock is acquired.</returns>
     public Task<IDisposable> WriterLockAsync(CancellationToken cancellationToken)
     {
-        lock (_waitingWriters)
+        var releaser = new ReleaserDisposable(this, true);
+        lock (_writersQueue)
         {
+            // if no one has the lock, we can take it
             if (_status == 0)
             {
                 _status = -1;
-                return _writerReleaserTask;
+                return Task.FromResult<IDisposable>(releaser);
             }
-            var waiter = new TaskCompletionSource<IDisposable>();
-            var registration = cancellationToken.Register(() =>
-            {
-                waiter.TrySetCanceled();
-            }, false);
-            var pair = new TaskSourceAndRegistrationPair(registration, waiter);
-            _waitingWriters.Enqueue(pair);
-            return waiter.Task;
+
+            var tcs = new TaskCompletionSource<IDisposable>();
+            var registration = cancellationToken.Register(() => tcs.TrySetCanceled(), false);
+            var waiter = new ReaderWriterAsyncWaiter(registration, tcs, releaser);
+            _writersQueue.Enqueue(waiter);
+            return tcs.Task;
         }
     }
 
@@ -196,16 +162,20 @@ public sealed class AsyncReaderWriterLock
     /// <returns>a task that completes when a writer lock is acquired.</returns>
     public Task<IDisposable> WriterLockAsync()
     {
-        lock (_waitingWriters)
+        var releaser = new ReleaserDisposable(this, true);
+        lock (_writersQueue)
         {
+            // if no one has the lock, we can take it
             if (_status == 0)
             {
                 _status = -1;
-                return _writerReleaserTask;
+                return Task.FromResult<IDisposable>(releaser);
             }
-            var waiter = new TaskCompletionSource<IDisposable>();
-            _waitingWriters.Enqueue(waiter);
-            return waiter.Task;
+
+            var tcs = new TaskCompletionSource<IDisposable>();
+            var waiter = new ReaderWriterAsyncWaiter(default, tcs, releaser);
+            _writersQueue.Enqueue(waiter);
+            return tcs.Task;
         }
     }
 
@@ -214,33 +184,44 @@ public sealed class AsyncReaderWriterLock
     /// </summary>
     private void ReaderRelease()
     {
-        object? toWake = null;
-
-        lock (_waitingWriters)
+        lock (_writersQueue)
         {
             --_status;
-            if (_status == 0
-                && _waitingWriters.Count > 0)
+            if (_status != 0) // there are still readers having the lock
             {
-                _status = -1;
-                toWake = _waitingWriters.Dequeue();
+                return;
             }
-        }
 
-        switch (toWake)
-        {
-            case TaskCompletionSource<IDisposable> tcs:
-                tcs.SetResult(_writerReleaser);
-                break;
-            case ReleaserDisposable disposable:
+            IReaderWriterLockWaiter toWake;
+            do
             {
-                lock (disposable)
+                do
                 {
-                    Monitor.Pulse(disposable);
-                }
+                    // Try to wake up a writer first
+                    if (_writersQueue.Count > 0)
+                    {
+                        toWake = _writersQueue.Dequeue();
+                    }
+                    else if (_readersQueue.Count > 0)
+                    {
+                        Debug.Assert(false, "There should be no readers in the queue when the status is 0");
+                        toWake = _readersQueue.Dequeue();
+                    }
+                    else
+                    {
+                        return;
+                    }
+                } while (!toWake.Awaken());
 
-                break;
-            }
+                if (toWake.IsWriter)
+                {
+                    _status = -1;
+                }
+                else
+                {
+                    _status++;
+                }
+            } while (!toWake.IsWriter);
         }
     }
 
@@ -249,71 +230,53 @@ public sealed class AsyncReaderWriterLock
     /// </summary>
     private void WriterRelease()
     {
-        while (true)
+        lock (_writersQueue)
         {
-            object? toWake = null;
-            var releaser = _readerReleaser;
-
-            lock (_waitingWriters)
+            _status = 0;
+            IReaderWriterLockWaiter toWake;
+            do
             {
-                if (_waitingWriters.Count > 0)
+                do
                 {
-                    toWake = _waitingWriters.Dequeue();
-                    releaser = _writerReleaser;
-                }
-                else if (_readersWaiting > 0)
+                    // Try to wake up a writer first
+                    if (_writersQueue.Count > 0)
+                    {
+                        toWake = _writersQueue.Dequeue();
+                    }
+                    else if (_readersQueue.Count > 0)
+                    {
+                        toWake = _readersQueue.Dequeue();
+                    }
+                    else
+                    {
+                        return;
+                    }
+                } while (!toWake.Awaken());
+
+                if (toWake.IsWriter)
                 {
-                    toWake = _waitingReader;
-                    _status = _readersWaiting;
-                    _readersWaiting = 0;
-                    _waitingReader = new TaskCompletionSource<IDisposable>();
-                    Monitor.PulseAll(_waitingWriters);
+                    _status = -1;
                 }
                 else
                 {
-                    _status = 0;
-                    Monitor.PulseAll(_waitingWriters);
+                    _status++;
                 }
-            }
-
-            switch (toWake)
-            {
-                case TaskCompletionSource<IDisposable> tcs:
-                    tcs.SetResult(releaser);
-                    break;
-                case TaskSourceAndRegistrationPair pair:
-                {
-                    pair.Registration.Dispose();
-                    if (!pair.Source.TrySetResult(_writerReleaser))
-                    {
-                        // Task was cancelled when a cancellationToken was cancelled
-                        // Try to release another waiter if any
-                        continue;
-                    }
-
-                    break;
-                }
-                case ReleaserDisposable disposable:
-                {
-                    lock (disposable)
-                    {
-                        Monitor.Pulse(disposable);
-                    }
-
-                    break;
-                }
-            }
-
-            break;
+            } while (!toWake.IsWriter);
         }
     }
 
     #region Nested type: Releaser
+
+    private interface IReaderWriterLockWaiter : IWaiter
+    {
+        public bool IsWriter { get; }
+    }
+
     /// <summary>
     ///     a releaser helper that implements IDisposable to support
     ///     using statement
     /// </summary>
-    private sealed class ReleaserDisposable : IDisposable
+    private sealed class ReleaserDisposable : IDisposable, IReaderWriterLockWaiter
     {
         /// <summary>
         ///     underlying lock
@@ -323,21 +286,25 @@ public sealed class AsyncReaderWriterLock
         /// <summary>
         ///     whether the lock acquired is a writer lock
         /// </summary>
-        private readonly bool _writer;
+        public bool IsWriter { get; }
+
+        private int _disposed;
 
         internal ReleaserDisposable(AsyncReaderWriterLock toRelease, bool writer)
         {
             _toRelease = toRelease;
-            _writer = writer;
+            IsWriter = writer;
         }
 
         #region IDisposable Members
+
         /// <summary>
         ///     Dispose. releases the lock
         /// </summary>
         public void Dispose()
         {
-            if (_writer)
+            if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0) return;
+            if (IsWriter)
             {
                 _toRelease.WriterRelease();
             }
@@ -346,21 +313,31 @@ public sealed class AsyncReaderWriterLock
                 _toRelease.ReaderRelease();
             }
         }
+
         #endregion
+
+        public bool Awaken()
+        {
+            lock (this)
+            {
+                Monitor.Pulse(this);
+            }
+
+            return true;
+        }
     }
+
     #endregion
 
-    #region Nested type: TaskSourceAndRegistrationPair
-    private sealed class TaskSourceAndRegistrationPair
-    {
-        public TaskSourceAndRegistrationPair(CancellationTokenRegistration registration, TaskCompletionSource<IDisposable> source)
-        {
-            Registration = registration;
-            Source = source;
-        }
+    #region Nested type: TaskSourceAndRegistrationwaiter
 
-        public CancellationTokenRegistration Registration { get; }
-        public TaskCompletionSource<IDisposable> Source { get; }
+    private sealed class ReaderWriterAsyncWaiter(
+        CancellationTokenRegistration registration,
+        TaskCompletionSource<IDisposable> source,
+        ReleaserDisposable releaser) : AsyncWaiter(registration, source, releaser), IReaderWriterLockWaiter
+    {
+        public bool IsWriter => releaser.IsWriter;
     }
+
     #endregion
 }

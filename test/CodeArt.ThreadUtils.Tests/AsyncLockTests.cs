@@ -44,7 +44,7 @@ public class AsyncLockTests
     {
         var lck = new AsyncLock();
         var l1 = await lck.LockAsync();
-        var l2T = Task.Run(() => lck.Lock());
+        var l2T = await StartSync(() => lck.Lock());
         l1.Dispose();
         var l2 = await l2T;
         l2.Dispose();

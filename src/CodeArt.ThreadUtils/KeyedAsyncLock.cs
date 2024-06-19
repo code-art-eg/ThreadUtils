@@ -52,8 +52,8 @@ public class KeyedAsyncLock<TKey> where TKey : IEquatable<TKey>
                     tcs.TrySetCanceled();
                 }
             }, false);
-            var pair = new TaskSourceAndRegistrationPair(registration, tcs, releaser);
-            status.Waiters.Enqueue(pair);
+            var waiter = new AsyncWaiter(registration, tcs, releaser);
+            status.Waiters.Enqueue(waiter);
 
             return tcs.Task;
         }
@@ -81,7 +81,7 @@ public class KeyedAsyncLock<TKey> where TKey : IEquatable<TKey>
             }
 
             var tcs = new TaskCompletionSource<IDisposable>();
-            status.Waiters.Enqueue(new TaskSourceAndRegistrationPair(default, tcs, releaser));
+            status.Waiters.Enqueue(new AsyncWaiter(default, tcs, releaser));
             return tcs.Task;
         }
     }
