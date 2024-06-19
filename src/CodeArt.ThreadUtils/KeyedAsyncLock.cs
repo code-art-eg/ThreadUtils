@@ -149,14 +149,12 @@ public class KeyedAsyncLock<TKey> where TKey : IEquatable<TKey>
                     case TaskSourceAndRegistrationPair pair:
                     {
                         pair.Registration.Dispose();
-                        if (pair.Source.Task.IsCanceled)
+                        if (!pair.Source.TrySetResult(new ReleaserDisposable(key, this)))
                         {
                             // Task was cancelled when a cancellationToken was cancelled
                             // Try to release another waiter if any
                             continue;
                         }
-
-                        pair.Source.TrySetResult(new ReleaserDisposable(key, this));
                         break;
                     }
                     case ReleaserDisposable releaser:
