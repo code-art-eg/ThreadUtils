@@ -10,7 +10,7 @@ public sealed class AsyncLock
     /// <summary>
     /// Waiters queue
     /// </summary>
-    private readonly Queue<object> _waiters = new();
+    private readonly Queue<IWaiter> _waiters = new();
 
     /// <summary>
     /// Whether the lock is taken
@@ -41,7 +41,7 @@ public sealed class AsyncLock
 
             var tcs = new TaskCompletionSource<IDisposable>();
             var registration = cancellationToken.Register(() => { tcs.TrySetCanceled(); }, false);
-            var pair = new TaskSourceAndRegistrationPair(registration, tcs);
+            var pair = new TaskSourceAndRegistrationPair(registration, tcs, new ReleaserDisposable(this));
             _waiters.Enqueue(pair);
 
             return tcs.Task;
@@ -63,7 +63,7 @@ public sealed class AsyncLock
             }
 
             var tcs = new TaskCompletionSource<IDisposable>();
-            _waiters.Enqueue(tcs);
+            _waiters.Enqueue(new TaskSourceAndRegistrationPair(default, tcs, new ReleaserDisposable(this)));
             return tcs.Task;
         }
     }
@@ -100,50 +100,20 @@ public sealed class AsyncLock
     /// </summary>
     private void Release()
     {
-        while (true)
+        IWaiter? toWake;
+        do
         {
-            object? toWake = null;
             lock (_waiters)
             {
-                if (_waiters.Count > 0)
-                {
-                    toWake = _waiters.Dequeue();
-                }
-                else
+                if (_waiters.Count == 0)
                 {
                     _lockTaken = false;
+                    return;
                 }
+                toWake = _waiters.Dequeue();
             }
-
-            switch (toWake)
-            {
-                case TaskCompletionSource<IDisposable> tcs:
-                    tcs.TrySetResult(new ReleaserDisposable(this));
-                    break;
-                case TaskSourceAndRegistrationPair pair:
-                {
-                    pair.Registration.Dispose();
-                    if (!pair.Source.TrySetResult(new ReleaserDisposable(this)))
-                    {
-                        // Task was cancelled when a cancellationToken was cancelled
-                        // Try to release another waiter if any
-                        continue;
-                    }
-                    break;
-                }
-                case ReleaserDisposable releaser:
-                {
-                    lock (releaser)
-                    {
-                        Monitor.Pulse(releaser);
-                    }
-
-                    break;
-                }
-            }
-
-            break;
         }
+        while(!toWake.Awaken());
     }
 
     #region Nested type: Releaser
@@ -152,7 +122,7 @@ public sealed class AsyncLock
     ///     a releaser helper that implements IDisposable to support
     ///     using statement
     /// </summary>
-    private sealed class ReleaserDisposable : IDisposable
+    private sealed class ReleaserDisposable : IDisposable, IWaiter
     {
         /// <summary>
         ///     underlying lock
@@ -177,18 +147,15 @@ public sealed class AsyncLock
         }
 
         #endregion
-    }
 
-    #endregion
-
-    #region Nested type: TaskSourceAndRegistrationPair
-
-    private sealed class TaskSourceAndRegistrationPair(
-        CancellationTokenRegistration registration,
-        TaskCompletionSource<IDisposable> source)
-    {
-        public CancellationTokenRegistration Registration { get; } = registration;
-        public TaskCompletionSource<IDisposable> Source { get; } = source;
+        public bool Awaken()
+        {
+            lock (this)
+            {
+                Monitor.Pulse(this);
+            }
+            return true;
+        }
     }
 
     #endregion

@@ -29,6 +29,7 @@ public class KeyedAsyncLock<TKey> where TKey : IEquatable<TKey>
     /// <returns>returns a task that completes when the lock is acquired</returns>
     public Task<IDisposable> LockAsync(TKey key, CancellationToken cancellationToken)
     {
+        var releaser = new ReleaserDisposable(key, this);
         lock (_queues)
         {
             if (!_queues.TryGetValue(key, out var status))
@@ -40,7 +41,7 @@ public class KeyedAsyncLock<TKey> where TKey : IEquatable<TKey>
             if (!status.LockTaken)
             {
                 status.LockTaken = true;
-                return Task.FromResult<IDisposable>(new ReleaserDisposable(key, this));
+                return Task.FromResult<IDisposable>(releaser);
             }
 
             var tcs = new TaskCompletionSource<IDisposable>();
@@ -51,7 +52,7 @@ public class KeyedAsyncLock<TKey> where TKey : IEquatable<TKey>
                     tcs.TrySetCanceled();
                 }
             }, false);
-            var pair = new TaskSourceAndRegistrationPair(registration, tcs);
+            var pair = new TaskSourceAndRegistrationPair(registration, tcs, releaser);
             status.Waiters.Enqueue(pair);
 
             return tcs.Task;
@@ -64,6 +65,7 @@ public class KeyedAsyncLock<TKey> where TKey : IEquatable<TKey>
     /// <returns>returns a task that completes when the lock is acquired</returns>
     public Task<IDisposable> LockAsync(TKey key)
     {
+        var releaser = new ReleaserDisposable(key, this);
         lock (_queues)
         {
             if (!_queues.TryGetValue(key, out var status))
@@ -75,11 +77,11 @@ public class KeyedAsyncLock<TKey> where TKey : IEquatable<TKey>
             if (!status.LockTaken)
             {
                 status.LockTaken = true;
-                return Task.FromResult<IDisposable>(new ReleaserDisposable(key, this));
+                return Task.FromResult<IDisposable>(releaser);
             }
 
             var tcs = new TaskCompletionSource<IDisposable>();
-            status.Waiters.Enqueue(tcs);
+            status.Waiters.Enqueue(new TaskSourceAndRegistrationPair(default, tcs, releaser));
             return tcs.Task;
         }
     }
@@ -90,7 +92,7 @@ public class KeyedAsyncLock<TKey> where TKey : IEquatable<TKey>
     /// <returns>returns object that would release the lock when disposed.</returns>
     public IDisposable Lock(TKey key)
     {
-        ReleaserDisposable newReleaser;
+        var releaser = new ReleaserDisposable(key, this);
         lock (_queues)
         {
             if (!_queues.TryGetValue(key, out var status))
@@ -102,19 +104,18 @@ public class KeyedAsyncLock<TKey> where TKey : IEquatable<TKey>
             if (!status.LockTaken)
             {
                 status.LockTaken = true;
-                return new ReleaserDisposable(key, this);
+                return releaser;
             }
 
-            newReleaser = new ReleaserDisposable(key, this);
-            status.Waiters.Enqueue(newReleaser);
+            status.Waiters.Enqueue(releaser);
         }
 
-        lock (newReleaser)
+        lock (releaser)
         {
-            Monitor.Wait(newReleaser);
+            Monitor.Wait(releaser);
         }
 
-        return newReleaser;
+        return releaser;
     }
 
     /// <summary>
@@ -129,47 +130,18 @@ public class KeyedAsyncLock<TKey> where TKey : IEquatable<TKey>
                 throw new InvalidOperationException("Lock was not taken");
             }
 
-            while (true)
+            IWaiter toWake;
+            do
             {
-                object? toWake = null;
-                if (status.Waiters.Count > 0)
-                {
-                    toWake = status.Waiters.Dequeue();
-                }
-                else
+                if (status.Waiters.Count == 0)
                 {
                     _queues.Remove(key);
+                    return;
                 }
 
-                switch (toWake)
-                {
-                    case TaskCompletionSource<IDisposable> tcs:
-                        tcs.TrySetResult(new ReleaserDisposable(key, this));
-                        break;
-                    case TaskSourceAndRegistrationPair pair:
-                    {
-                        pair.Registration.Dispose();
-                        if (!pair.Source.TrySetResult(new ReleaserDisposable(key, this)))
-                        {
-                            // Task was cancelled when a cancellationToken was cancelled
-                            // Try to release another waiter if any
-                            continue;
-                        }
-                        break;
-                    }
-                    case ReleaserDisposable releaser:
-                    {
-                        lock (releaser)
-                        {
-                            Monitor.Pulse(releaser);
-                        }
-
-                        break;
-                    }
-                }
-
-                break;
+                toWake = status.Waiters.Dequeue();
             }
+            while (!toWake.Awaken());
         }
     }
 
@@ -179,7 +151,7 @@ public class KeyedAsyncLock<TKey> where TKey : IEquatable<TKey>
     ///     a releaser helper that implements IDisposable to support
     ///     using statement
     /// </summary>
-    private sealed class ReleaserDisposable : IDisposable
+    private sealed class ReleaserDisposable : IDisposable, IWaiter
     {
         private readonly TKey _key;
 
@@ -207,18 +179,15 @@ public class KeyedAsyncLock<TKey> where TKey : IEquatable<TKey>
         }
 
         #endregion
-    }
 
-    #endregion
-
-    #region Nested type: TaskSourceAndRegistrationPair
-
-    private sealed class TaskSourceAndRegistrationPair(
-        CancellationTokenRegistration registration,
-        TaskCompletionSource<IDisposable> source)
-    {
-        public CancellationTokenRegistration Registration { get; } = registration;
-        public TaskCompletionSource<IDisposable> Source { get; } = source;
+        public bool Awaken()
+        {
+            lock (this)
+            {
+                Monitor.Pulse(this);
+            }
+            return true;
+        }
     }
 
     #endregion
@@ -228,7 +197,7 @@ public class KeyedAsyncLock<TKey> where TKey : IEquatable<TKey>
     private sealed class LockStatus
     {
         public bool LockTaken { get; set; }
-        public Queue<object> Waiters { get; } = new();
+        public Queue<IWaiter> Waiters { get; } = new();
     }
 
     #endregion
