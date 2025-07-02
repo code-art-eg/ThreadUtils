@@ -96,13 +96,10 @@ public sealed class AsyncLock
         _waiters.Enqueue(releaser);
         lock (releaser)
         {
-            if (!Monitor.Wait(releaser, timeout))
-            {
-                releaser.Dispose();
-                throw new TimeoutException("Timeout waiting for lock");
-            }
+            if (Monitor.Wait(releaser, timeout)) return releaser;
+            releaser.Dispose();
+            throw new TimeoutException("Timeout waiting for lock");
         }
-        return releaser;
     }
 
     /// <summary>
