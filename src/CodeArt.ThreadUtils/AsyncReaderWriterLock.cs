@@ -18,7 +18,7 @@ public sealed class AsyncReaderWriterLock
     private readonly Queue<IReaderWriterLockWaiter> _readersQueue = new();
 
     /// <summary>
-    ///     status. O means no one has the lock. -1 a writer has the lock, +ve is the number of readers having the lock.
+    ///     status: O means no one has the lock. -1 a writer has the lock, +ve is the number of readers having the lock.
     /// </summary>
     private int _status;
 
@@ -38,7 +38,7 @@ public sealed class AsyncReaderWriterLock
         var releaser = new ReleaserDisposable(this, false);
         lock (_writersQueue)
         {
-            // to avoid starvation of writers we only allow readers to acquire the lock if there are no writers waiting
+            // to avoid starvation of writers, we only allow readers to acquire the lock if there are no writers waiting
             if (_status >= 0 && _writersQueue.Count == 0)
             {
                 ++_status;
@@ -66,7 +66,7 @@ public sealed class AsyncReaderWriterLock
         var releaser = new ReleaserDisposable(this, false);
         lock (_writersQueue)
         {
-            // to avoid starvation of writers we only allow readers to acquire the lock if there are no writers waiting
+            // to avoid starvation of writers, we only allow readers to acquire the lock if there are no writers waiting
             if (_status >= 0 && _writersQueue.Count == 0)
             {
                 ++_status;
@@ -90,7 +90,7 @@ public sealed class AsyncReaderWriterLock
         var releaser = new ReleaserDisposable(this, false);
         lock (_writersQueue)
         {
-            // to avoid starvation of writers we only allow readers to acquire the lock if there are no writers waiting 
+            // to avoid starvation of writers, we only allow readers to acquire the lock if there are no writers waiting 
             if (_status >= 0 && _writersQueue.Count == 0)
             {
                 ++_status;
@@ -299,7 +299,7 @@ public sealed class AsyncReaderWriterLock
         #region IDisposable Members
 
         /// <summary>
-        ///     Dispose. releases the lock
+        ///     Dispose releases the lock
         /// </summary>
         public void Dispose()
         {
