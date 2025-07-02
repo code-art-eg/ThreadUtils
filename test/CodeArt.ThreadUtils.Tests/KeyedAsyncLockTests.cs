@@ -12,20 +12,22 @@ public class KeyedAsyncLockTests
     }
 
     [Fact(Timeout = 10)]
-    public void KeyedAsyncLock_ShouldAllowSingleLocker()
+    public Task KeyedAsyncLock_ShouldAllowSingleLocker()
     {
         var lck = new KeyedAsyncLock<string>();
         using var l1 = lck.Lock("x");
+        return Task.CompletedTask;
     }
 
     [Fact(Timeout = 10)]
-    public void KeyedAsyncLock_ShouldAllowLockAfterRelease()
+    public Task KeyedAsyncLock_ShouldAllowLockAfterRelease()
     {
         var lck = new KeyedAsyncLock<string>();
         var l1 = lck.Lock("x");
         l1.Dispose();
         var l2 = lck.Lock("x");
         l2.Dispose();
+        return Task.CompletedTask;
     }
 
     [Fact(Timeout = 10)]

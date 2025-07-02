@@ -12,20 +12,22 @@ public class AsyncLockTests
     }
 
     [Fact(Timeout = 10)]
-    public void AsyncLock_ShouldAllowSingleLocker()
+    public Task AsyncLock_ShouldAllowSingleLocker()
     {
         var lck = new AsyncLock();
         using var l1 = lck.Lock();
+        return Task.CompletedTask;
     }
 
     [Fact(Timeout = 10)]
-    public void AsyncLock_ShouldAllowLockAfterRelease()
+    public Task AsyncLock_ShouldAllowLockAfterRelease()
     {
         var lck = new AsyncLock();
         var l1 = lck.Lock();
         l1.Dispose();
         var l2 = lck.Lock();
         l2.Dispose();
+        return Task.CompletedTask;
     }
 
     [Fact(Timeout = 10)]

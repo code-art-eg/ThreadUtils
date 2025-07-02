@@ -81,18 +81,20 @@ public static class AsyncReaderWriterLockTests
     public class WhenUnlockedSync
     {
         [Fact(Timeout = 300)]
-        public void AsyncReaderWriterLock_ShouldAllowsSingleWriter()
+        public Task AsyncReaderWriterLock_ShouldAllowsSingleWriter()
         {
             var rwl = new AsyncReaderWriterLock();
             using var w1 = rwl.WriterLock();
+            return Task.CompletedTask;
         }
 
         [Fact(Timeout = 300)]
-        public void AsyncReaderWriterLock_ShouldAllowsMultipleReaders()
+        public Task AsyncReaderWriterLock_ShouldAllowsMultipleReaders()
         {
             var rwl = new AsyncReaderWriterLock();
             using var r1 = rwl.ReaderLock();
             using var r2 = rwl.ReaderLock();
+            return Task.CompletedTask;
         }
     }
 
