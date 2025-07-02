@@ -4,14 +4,14 @@ namespace CodeArt.ThreadUtils.Tests;
 
 public class AsyncLockTests
 {
-    [Fact(Timeout = 10)]
+    [Fact(Timeout = Timeouts.ShortTestTimeout)]
     public async Task AsyncLock_ShouldAllowSingleLockerAsync()
     {
         var lck = new AsyncLock();
         using var l1 = await lck.LockAsync();
     }
 
-    [Fact(Timeout = 10)]
+    [Fact(Timeout = Timeouts.ShortTestTimeout)]
     public Task AsyncLock_ShouldAllowSingleLocker()
     {
         var lck = new AsyncLock();
@@ -19,7 +19,7 @@ public class AsyncLockTests
         return Task.CompletedTask;
     }
 
-    [Fact(Timeout = 10)]
+    [Fact(Timeout = Timeouts.ShortTestTimeout)]
     public Task AsyncLock_ShouldAllowLockAfterRelease()
     {
         var lck = new AsyncLock();
@@ -30,7 +30,7 @@ public class AsyncLockTests
         return Task.CompletedTask;
     }
 
-    [Fact(Timeout = 10)]
+    [Fact(Timeout = Timeouts.ShortTestTimeout)]
     public async Task AsyncLock_ShouldAllowLockAfterReleaseAsync()
     {
         var lck = new AsyncLock();
@@ -52,7 +52,7 @@ public class AsyncLockTests
         l2.Dispose();
     }
 
-    [Fact(Timeout = 10)]
+    [Fact(Timeout = Timeouts.ShortTestTimeout)]
     public async Task AsyncLock_ShouldAllowLockAfterReleaseSyncFirst()
     {
         var lck = new AsyncLock();
@@ -63,7 +63,7 @@ public class AsyncLockTests
         l2.Dispose();
     }
 
-    [Fact(Timeout = 1500)]
+    [Fact(Timeout = Timeouts.LongTestTimeout)]
     public async Task AsyncLock_ShouldPreventSecondLocker()
     {
         var lck = new AsyncLock();
@@ -71,7 +71,7 @@ public class AsyncLockTests
         await AssertHelper.TimesOutAsync(() => lck.Lock());
     }
 
-    [Fact(Timeout = 1500)]
+    [Fact(Timeout = Timeouts.LongTestTimeout)]
     public async Task AsyncLock_ShouldPreventSecondLockerAsync()
     {
         var lck = new AsyncLock();
@@ -79,7 +79,7 @@ public class AsyncLockTests
         await AssertHelper.TimesOutAsync(lck.LockAsync());
     }
 
-    [Fact(Timeout = 1500)]
+    [Fact(Timeout = Timeouts.LongTestTimeout)]
     public async Task AsyncLock_ShouldPreventSecondLockerAsyncFirst()
     {
         var lck = new AsyncLock();
@@ -87,7 +87,7 @@ public class AsyncLockTests
         await AssertHelper.TimesOutAsync(() => lck.Lock());
     }
 
-    [Fact(Timeout = 1500)]
+    [Fact(Timeout = Timeouts.LongTestTimeout)]
     public async Task AsyncLock_ShouldPreventSecondLockerSyncFirst()
     {
         var lck = new AsyncLock();
@@ -95,7 +95,7 @@ public class AsyncLockTests
         await AssertHelper.TimesOutAsync(lck.LockAsync());
     }
 
-    [Fact(Timeout = 10)]
+    [Fact(Timeout = Timeouts.ShortTestTimeout)]
     public async Task AsyncLock_ShouldWouldCancelLockAndAllowOtherLocks()
     {
         var lck = new AsyncLock();
@@ -112,7 +112,7 @@ public class AsyncLockTests
         using var l2 = lck.Lock();
     }
 
-    [Fact(Timeout = 1500)]
+    [Fact(Timeout = Timeouts.LongTestTimeout)]
     public async Task AsyncLock_ShouldPreventMultipleDisposeCalls()
     {
         var lck = new AsyncLock();
@@ -128,7 +128,7 @@ public class AsyncLockTests
         await AssertHelper.TimesOutAsync(l3);
     }
 
-    [Fact(Timeout = 10)]
+    [Fact(Timeout = Timeouts.ShortTestTimeout)]
     public async Task AsyncLock_ShouldThreeLocks()
     {
         var lck = new AsyncLock();
@@ -145,7 +145,7 @@ public class AsyncLockTests
         d3.Dispose();
     }
     
-    [Fact(Timeout = 10)]
+    [Fact(Timeout = Timeouts.ShortTestTimeout)]
     public async Task AsyncLock_ShouldAllowLockWithCancellationToken()
     {
         var lck = new AsyncLock();
@@ -160,14 +160,14 @@ public class AsyncLockTests
         l2.Dispose();
     }
     
-    [Fact(Timeout = 1000)]
+    [Fact(Timeout = Timeouts.LongTestTimeout)]
     public async Task AsyncLock_LockShouldTimeoutWhenTimeoutDurationElapses()
     {
         var lck = new AsyncLock();
         var l1 = await lck.LockAsync();
         await Assert.ThrowsAsync<TimeoutException>(() =>
         {
-            using (lck.Lock(TimeSpan.FromMilliseconds(100)))
+            using (lck.Lock(TimeSpan.FromMilliseconds(Timeouts.LongTimeout)))
             {
                 
             }
@@ -176,7 +176,7 @@ public class AsyncLockTests
         l1.Dispose();
     }
     
-    [Fact(Timeout = 1000)]
+    [Fact(Timeout = Timeouts.LongTestTimeout)]
     public async Task AsyncLock_LockShouldReleaseLockInTime()
     {
         var lck = new AsyncLock();
@@ -186,7 +186,7 @@ public class AsyncLockTests
             await Task.Delay(50);
             l1.Dispose();
         });
-        using (lck.Lock(TimeSpan.FromMilliseconds(100)))
+        using (lck.Lock(TimeSpan.FromMilliseconds(Timeouts.LongTimeout)))
         {
             
         }
