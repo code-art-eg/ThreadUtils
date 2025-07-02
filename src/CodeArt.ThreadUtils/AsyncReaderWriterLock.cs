@@ -8,6 +8,11 @@
 public sealed class AsyncReaderWriterLock
 {
     /// <summary>
+    /// Lock for thread safety
+    /// </summary>
+    private readonly Lock _lock = new();
+    
+    /// <summary>
     /// queue of waiting writers. also serves as the sync root for this object
     /// </summary>
     private readonly Queue<IReaderWriterLockWaiter> _writersQueue = new();
@@ -36,7 +41,7 @@ public sealed class AsyncReaderWriterLock
     public IDisposable ReaderLock()
     {
         var releaser = new ReleaserDisposable(this, false);
-        lock (_writersQueue)
+        lock (_lock)
         {
             // to avoid starvation of writers, we only allow readers to acquire the lock if there are no writers waiting
             if (_status >= 0 && _writersQueue.Count == 0)
@@ -64,7 +69,7 @@ public sealed class AsyncReaderWriterLock
     public ValueTask<IDisposable> ReaderLockAsync(CancellationToken cancellationToken)
     {
         var releaser = new ReleaserDisposable(this, false);
-        lock (_writersQueue)
+        lock (_lock)
         {
             // to avoid starvation of writers, we only allow readers to acquire the lock if there are no writers waiting
             if (_status >= 0 && _writersQueue.Count == 0)
@@ -88,7 +93,7 @@ public sealed class AsyncReaderWriterLock
     public ValueTask<IDisposable> ReaderLockAsync()
     {
         var releaser = new ReleaserDisposable(this, false);
-        lock (_writersQueue)
+        lock (_lock)
         {
             // to avoid starvation of writers, we only allow readers to acquire the lock if there are no writers waiting 
             if (_status >= 0 && _writersQueue.Count == 0)
@@ -111,7 +116,7 @@ public sealed class AsyncReaderWriterLock
     public IDisposable WriterLock()
     {
         var releaser = new ReleaserDisposable(this, true);
-        lock (_writersQueue)
+        lock (_lock)
         {
             // if no one has the lock, we can take it
             if (_status == 0)
@@ -139,7 +144,7 @@ public sealed class AsyncReaderWriterLock
     public ValueTask<IDisposable> WriterLockAsync(CancellationToken cancellationToken)
     {
         var releaser = new ReleaserDisposable(this, true);
-        lock (_writersQueue)
+        lock (_lock)
         {
             // if no one has the lock, we can take it
             if (_status == 0)
@@ -163,7 +168,7 @@ public sealed class AsyncReaderWriterLock
     public ValueTask<IDisposable> WriterLockAsync()
     {
         var releaser = new ReleaserDisposable(this, true);
-        lock (_writersQueue)
+        lock (_lock)
         {
             // if no one has the lock, we can take it
             if (_status == 0)
@@ -184,7 +189,7 @@ public sealed class AsyncReaderWriterLock
     /// </summary>
     private void ReaderRelease()
     {
-        lock (_writersQueue)
+        lock (_lock)
         {
             --_status;
             if (_status != 0) // there are still readers having the lock
@@ -230,7 +235,7 @@ public sealed class AsyncReaderWriterLock
     /// </summary>
     private void WriterRelease()
     {
-        lock (_writersQueue)
+        lock (_lock)
         {
             _status = 0;
             IReaderWriterLockWaiter toWake;
