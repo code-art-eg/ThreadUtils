@@ -12,11 +12,16 @@
 		<RepositoryUrl>https://github.com/code-art-eg/ThreadUtils</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
 		<PackageTags>Async primitives</PackageTags>
-		<AssemblyVersion>1.1.0</AssemblyVersion>
-		<FileVersion>1.1.0</FileVersion>
-		<Version>1.1.0</Version>
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 	</PropertyGroup>
+	<PropertyGroup>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+	</PropertyGroup>
+
 	<ItemGroup>
-	  <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.4" />
+		<None Include="../../README.md" Pack="true" PackagePath="/" />
+	</ItemGroup>
+	<ItemGroup>
+	  <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.6.3" />
 	</ItemGroup>
 </Project>
