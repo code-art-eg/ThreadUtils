@@ -103,7 +103,7 @@ public static class AsyncReaderWriterLockTests
         {
             var rwl = new AsyncReaderWriterLock();
             var w1 = await rwl.WriterLockAsync();
-            var r2T = rwl.ReaderLockAsync();
+            var r2T = rwl.ReaderLockAsync().AsTask();
             await AssertHelper.TimesOutAsync(r2T);
             w1.Dispose();
             var r2 = await r2T;
@@ -115,7 +115,7 @@ public static class AsyncReaderWriterLockTests
         {
             var rwl = new AsyncReaderWriterLock();
             var w1 = await rwl.WriterLockAsync();
-            var w2T = rwl.WriterLockAsync();
+            var w2T = rwl.WriterLockAsync().AsTask();
             await AssertHelper.TimesOutAsync(w2T);
             w1.Dispose();
             var w2 = await w2T;
@@ -159,7 +159,7 @@ public static class AsyncReaderWriterLockTests
         {
             var rwl = new AsyncReaderWriterLock();
             var w1 = rwl.WriterLock();
-            var r2T = rwl.ReaderLockAsync();
+            var r2T = rwl.ReaderLockAsync().AsTask();
             await AssertHelper.TimesOutAsync(r2T);
             w1.Dispose();
             var r2 = await r2T;
@@ -186,7 +186,7 @@ public static class AsyncReaderWriterLockTests
         {
             var rwl = new AsyncReaderWriterLock();
             var w1 = rwl.WriterLock();
-            var w2T = rwl.WriterLockAsync();
+            var w2T = rwl.WriterLockAsync().AsTask();
             await AssertHelper.TimesOutAsync(w2T);
             w1.Dispose();
             var w2 = await w2T;
@@ -372,7 +372,7 @@ public static class AsyncReaderWriterLockTests
         {
             var rwl = new AsyncReaderWriterLock();
             var r1 = await rwl.ReaderLockAsync();
-            var w1T = rwl.WriterLockAsync();
+            var w1T = rwl.WriterLockAsync().AsTask();
             await AssertHelper.TimesOutAsync(w1T);
             r1.Dispose();
             var w1 = await w1T;
