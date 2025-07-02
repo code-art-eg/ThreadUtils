@@ -10,6 +10,6 @@ internal interface IWaiter
     /// Awaken the waiter (The lock would be acquired)
     /// </summary>
     /// <returns>True if the waiter was awakened successfully, false otherwise.
-    /// This method can fail if the waiter had a cancellation token that was cancelled.</returns>
+    /// This method can fail if the waiter had a cancellation token that was canceled.</returns>
     bool Awaken();
 }
