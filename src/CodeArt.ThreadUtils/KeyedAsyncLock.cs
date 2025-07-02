@@ -12,7 +12,8 @@ public class KeyedAsyncLock<TKey> where TKey : IEquatable<TKey>
     /// <summary>
     /// Waiters queue
     /// </summary>
-    private readonly Dictionary<TKey, LockStatus> _queues = new();
+    private readonly ConcurrentDictionary<TKey, LockStatus> _queues = new();
+    private static readonly LockStatus s_emptyLockStatus = new();
 
     /// <summary>
     /// Constructor. Creates a new instance of <see cref="AsyncLock"/> class
@@ -30,33 +31,19 @@ public class KeyedAsyncLock<TKey> where TKey : IEquatable<TKey>
     public ValueTask<IDisposable> LockAsync(TKey key, CancellationToken cancellationToken)
     {
         var releaser = new ReleaserDisposable(key, this);
-        lock (_queues)
+        var status = _queues.GetOrAdd(key, _ => new LockStatus());
+
+        if (status.TrySetLockTaken())
         {
-            if (!_queues.TryGetValue(key, out var status))
-            {
-                status = new LockStatus();
-                _queues.Add(key, status);
-            }
-
-            if (!status.LockTaken)
-            {
-                status.LockTaken = true;
-                return new ValueTask<IDisposable>(releaser);
-            }
-
-            var tcs = new TaskCompletionSource<IDisposable>();
-            var registration = cancellationToken.Register(() =>
-            {
-                lock (_queues)
-                {
-                    tcs.TrySetCanceled();
-                }
-            }, false);
-            var waiter = new AsyncWaiter(registration, tcs, releaser);
-            status.Waiters.Enqueue(waiter);
-
-            return new ValueTask<IDisposable>(tcs.Task);
+            return new ValueTask<IDisposable>(releaser);
         }
+
+        var tcs = new TaskCompletionSource<IDisposable>();
+        var registration = cancellationToken.Register(() => { tcs.TrySetCanceled(); }, false);
+
+        var waiter = new AsyncWaiter(registration, tcs, releaser);
+        status.Waiters.Enqueue(waiter);
+        return new ValueTask<IDisposable>(tcs.Task);
     }
 
     /// <summary>
@@ -66,50 +53,32 @@ public class KeyedAsyncLock<TKey> where TKey : IEquatable<TKey>
     public ValueTask<IDisposable> LockAsync(TKey key)
     {
         var releaser = new ReleaserDisposable(key, this);
-        lock (_queues)
+        var status = _queues.GetOrAdd(key, _ => new LockStatus());
+
+        if (status.TrySetLockTaken())
         {
-            if (!_queues.TryGetValue(key, out var status))
-            {
-                status = new LockStatus();
-                _queues.Add(key, status);
-            }
-
-            if (!status.LockTaken)
-            {
-                status.LockTaken = true;
-                return new ValueTask<IDisposable>(releaser);
-            }
-
-            var tcs = new TaskCompletionSource<IDisposable>();
-            status.Waiters.Enqueue(new AsyncWaiter(default, tcs, releaser));
-            return new ValueTask<IDisposable>(tcs.Task);
+            return new ValueTask<IDisposable>(releaser);
         }
+        
+        var tcs = new TaskCompletionSource<IDisposable>();
+        status.Waiters.Enqueue(new AsyncWaiter(default, tcs, releaser));
+        return new ValueTask<IDisposable>(tcs.Task);
     }
 
     /// <summary>
     /// Acquire an exclusive lock
     /// </summary>
-    /// <returns>returns object that would release the lock when disposed.</returns>
+    /// <returns>returns an object that would release the lock when disposed.</returns>
     public IDisposable Lock(TKey key)
     {
         var releaser = new ReleaserDisposable(key, this);
-        lock (_queues)
+        var status = _queues.GetOrAdd(key, _ => new LockStatus());
+        if (status.TrySetLockTaken())
         {
-            if (!_queues.TryGetValue(key, out var status))
-            {
-                status = new LockStatus();
-                _queues.Add(key, status);
-            }
-
-            if (!status.LockTaken)
-            {
-                status.LockTaken = true;
-                return releaser;
-            }
-
-            status.Waiters.Enqueue(releaser);
+            return releaser;
         }
-
+        
+        status.Waiters.Enqueue(releaser);
         lock (releaser)
         {
             Monitor.Wait(releaser);
@@ -123,29 +92,31 @@ public class KeyedAsyncLock<TKey> where TKey : IEquatable<TKey>
     /// </summary>
     private void Release(TKey key)
     {
-        lock (_queues)
+        if (!_queues.TryGetValue(key, out var status))
         {
-            if (!_queues.TryGetValue(key, out var status))
-            {
-                throw new InvalidOperationException("Lock was not taken");
-            }
-
-            IWaiter toWake;
-            do
-            {
-                if (status.Waiters.Count == 0)
-                {
-                    _queues.Remove(key);
-                    return;
-                }
-
-                toWake = status.Waiters.Dequeue();
-            }
-            while (!toWake.Awaken());
+            throw new InvalidOperationException("Lock was not taken");
         }
-    }
+        
+        IWaiter? toWake;
+        do
+        {
+            if (_queues.TryRemove(new KeyValuePair<TKey, LockStatus>(key, s_emptyLockStatus)))
+            {
+                return;
+            }
 
-    #region Nested type: Releaser
+            if (!status.Waiters.TryDequeue(out toWake))
+            {
+                // This should not happen because if the queue is actually empty,
+                // the previous "if" statement should evaluate to true and the method would have returned.
+                // Since no two objects can have the lock at the same time, 
+                // there should be no risk of two threads calling Release simultaneously,
+                // So there should be no race here.
+                throw new InvalidOperationException("There was nothing to wake.");                
+            }
+            
+        } while (!toWake.Awaken());
+    }
 
     /// <summary>
     ///     a releaser helper that implements IDisposable to support
@@ -168,17 +139,15 @@ public class KeyedAsyncLock<TKey> where TKey : IEquatable<TKey>
             _toRelease = toRelease;
         }
 
-        #region IDisposable Members
 
         /// <summary>
-        ///     Dispose. releases the lock
+        ///     Dispose, releases the lock
         /// </summary>
         public void Dispose()
         {
             if (Interlocked.CompareExchange(ref _disposed, 1, 0) == 0) _toRelease.Release(_key);
         }
 
-        #endregion
 
         public bool Awaken()
         {
@@ -186,19 +155,48 @@ public class KeyedAsyncLock<TKey> where TKey : IEquatable<TKey>
             {
                 Monitor.Pulse(this);
             }
+
             return true;
         }
     }
 
-    #endregion
 
-    #region Nested type : LockStatus
-
-    private sealed class LockStatus
+    /// <summary>
+    /// 
+    /// </summary>
+    private sealed class LockStatus : IEquatable<LockStatus>
     {
-        public bool LockTaken { get; set; }
-        public Queue<IWaiter> Waiters { get; } = new();
-    }
+        private int _lockTaken;
 
-    #endregion
+        public bool TrySetLockTaken()
+        {
+            return Interlocked.CompareExchange(ref _lockTaken, 1, 0) == 0;
+        }
+
+        public ConcurrentQueue<IWaiter> Waiters { get; } = new();
+
+        /// <summary>
+        /// The equality comparer compares the Waiters' Count only, the only value we care about is zero.
+        /// This is because the comparison is only used when removing the LockStatus from the dictionary,
+        /// and we want to remove if and only if the Waiters' Count reached zero.
+        /// </summary>
+        /// <param name="other"></param>
+        /// <returns></returns>
+        public bool Equals(LockStatus? other)
+        {
+            if (other is null) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return other.Waiters.Count == Waiters.Count;
+        }
+
+        public override bool Equals(object? obj)
+        {
+            return ReferenceEquals(this, obj) || obj is LockStatus other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return Waiters.Count;
+        }
+    }
 }
