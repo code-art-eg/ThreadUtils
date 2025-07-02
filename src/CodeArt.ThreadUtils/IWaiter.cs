@@ -1,7 +1,7 @@
 ﻿namespace CodeArt.ThreadUtils;
 
 /// <summary>
-/// Interface representing thread or task waiting to acquire a lock
+/// Interface representing a thread or task waiting to acquire a lock
 /// that can be awakened
 /// </summary>
 internal interface IWaiter
