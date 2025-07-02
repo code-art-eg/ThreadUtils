@@ -1,4 +1,6 @@
-﻿namespace CodeArt.ThreadUtils;
+﻿using System.Collections.Concurrent;
+
+namespace CodeArt.ThreadUtils;
 
 /// <summary>
 ///  Async lock that interacts with using statement
@@ -10,12 +12,12 @@ public sealed class AsyncLock
     /// <summary>
     /// Waiters queue
     /// </summary>
-    private readonly Queue<IWaiter> _waiters = new();
+    private readonly ConcurrentQueue<IWaiter> _waiters = new();
 
     /// <summary>
     /// Whether the lock is taken
     /// </summary>
-    private bool _lockTaken;
+    private int _lockTaken;
 
     /// <summary>
     /// Constructor. Creates a new instance of <see cref="AsyncLock"/> class
@@ -32,21 +34,17 @@ public sealed class AsyncLock
     public ValueTask<IDisposable> LockAsync(CancellationToken cancellationToken)
     {
         var releaser = new ReleaserDisposable(this);
-        lock (_waiters)
+        if (Interlocked.CompareExchange(ref _lockTaken, 1, 0) == 0)
         {
-            if (!_lockTaken)
-            {
-                _lockTaken = true;
-                return new ValueTask<IDisposable>(releaser);
-            }
-
-            var tcs = new TaskCompletionSource<IDisposable>();
-            var registration = cancellationToken.Register(() => { tcs.TrySetCanceled(); }, false);
-            var waiter = new AsyncWaiter(registration, tcs, releaser);
-            _waiters.Enqueue(waiter);
-
-            return new ValueTask<IDisposable>(tcs.Task);
+            return new ValueTask<IDisposable>(releaser);
         }
+
+        var tcs = new TaskCompletionSource<IDisposable>();
+        var registration = cancellationToken.Register(() => { tcs.TrySetCanceled(); }, false);
+        var waiter = new AsyncWaiter(registration, tcs, releaser);
+        _waiters.Enqueue(waiter);
+
+        return new ValueTask<IDisposable>(tcs.Task);
     }
 
     /// <summary>
@@ -56,45 +54,57 @@ public sealed class AsyncLock
     public ValueTask<IDisposable> LockAsync()
     {
         var releaser = new ReleaserDisposable(this);
-        lock (_waiters)
+        if (Interlocked.CompareExchange(ref _lockTaken, 1, 0) == 0)
         {
-            if (!_lockTaken)
-            {
-                _lockTaken = true;
-                return new ValueTask<IDisposable>(releaser);
-            }
-
-            var tcs = new TaskCompletionSource<IDisposable>();
-            _waiters.Enqueue(new AsyncWaiter(default, tcs, releaser));
-            return new ValueTask<IDisposable>(tcs.Task);
+            return new ValueTask<IDisposable>(releaser);
         }
+
+        var tcs = new TaskCompletionSource<IDisposable>();
+        _waiters.Enqueue(new AsyncWaiter(default, tcs, releaser));
+        return new ValueTask<IDisposable>(tcs.Task);
     }
 
     /// <summary>
     /// Acquire an exclusive lock
     /// </summary>
-    /// <returns>returns object that would release the lock when disposed.</returns>
+    /// <returns>returns an object that would release the lock when disposed.</returns>
     public IDisposable Lock()
     {
-        ReleaserDisposable newReleaser;
-        lock (_waiters)
+        var releaser = new ReleaserDisposable(this);
+        if (Interlocked.CompareExchange(ref _lockTaken, 1, 0) == 0)
         {
-            if (!_lockTaken)
+            return releaser;
+        }
+        _waiters.Enqueue(releaser);
+        lock (releaser)
+        {
+            Monitor.Wait(releaser);
+        }
+        return releaser;
+    }
+    
+    /// <summary>
+    /// Acquire an exclusive lock
+    /// </summary>
+    /// 
+    /// <returns>returns an object that would release the lock when disposed.</returns>
+    public IDisposable Lock(TimeSpan timeout)
+    {
+        var releaser = new ReleaserDisposable(this);
+        if (Interlocked.CompareExchange(ref _lockTaken, 1, 0) == 0)
+        {
+            return releaser;
+        }
+        _waiters.Enqueue(releaser);
+        lock (releaser)
+        {
+            if (!Monitor.Wait(releaser, timeout))
             {
-                _lockTaken = true;
-                return new ReleaserDisposable(this);
+                releaser.Dispose();
+                throw new TimeoutException("Timeout waiting for lock");
             }
-
-            newReleaser = new ReleaserDisposable(this);
-            _waiters.Enqueue(newReleaser);
         }
-
-        lock (newReleaser)
-        {
-            Monitor.Wait(newReleaser);
-        }
-
-        return newReleaser;
+        return releaser;
     }
 
     /// <summary>
@@ -105,15 +115,9 @@ public sealed class AsyncLock
         IWaiter? toWake;
         do
         {
-            lock (_waiters)
-            {
-                if (_waiters.Count == 0)
-                {
-                    _lockTaken = false;
-                    return;
-                }
-                toWake = _waiters.Dequeue();
-            }
+            if (_waiters.TryDequeue(out toWake)) continue;
+            Interlocked.Exchange(ref _lockTaken, 0);
+            return;
         }
         while(!toWake.Awaken());
     }
@@ -141,7 +145,7 @@ public sealed class AsyncLock
         #region IDisposable Members
 
         /// <summary>
-        ///     Dispose. releases the lock
+        ///     Dispose releases the lock
         /// </summary>
         public void Dispose()
         {
@@ -154,6 +158,10 @@ public sealed class AsyncLock
         {
             lock (this)
             {
+                if (_disposed == 1)
+                {
+                    return false;
+                }
                 Monitor.Pulse(this);
             }
             return true;
