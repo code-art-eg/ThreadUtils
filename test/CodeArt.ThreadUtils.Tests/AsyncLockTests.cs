@@ -157,4 +157,30 @@ public class AsyncLockTests
         var l2 = await l2T;
         l2.Dispose();
     }
+    
+    [Fact(Timeout = 1000)]
+    public async Task AsyncLock_LockShouldTimeoutWhenTimeoutDurationElapses()
+    {
+        var lck = new AsyncLock();
+        var l1 = await lck.LockAsync();
+        await Assert.ThrowsAsync<TimeoutException>(() =>
+        {
+            using(lck.Lock(TimeSpan.FromMilliseconds(100)));
+            return Task.CompletedTask;
+        });
+        l1.Dispose();
+    }
+    
+    [Fact(Timeout = 1000)]
+    public async Task AsyncLock_LockShouldReleaseLockInTime()
+    {
+        var lck = new AsyncLock();
+        var l1 = await lck.LockAsync();
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(50);
+            l1.Dispose();
+        });
+        using(lck.Lock(TimeSpan.FromMilliseconds(100)));
+    }
 }
