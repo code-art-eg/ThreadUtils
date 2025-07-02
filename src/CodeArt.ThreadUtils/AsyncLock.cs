@@ -1,6 +1,4 @@
-﻿using System.Collections.Concurrent;
-
-namespace CodeArt.ThreadUtils;
+﻿namespace CodeArt.ThreadUtils;
 
 /// <summary>
 ///  Async lock that interacts with using statement
