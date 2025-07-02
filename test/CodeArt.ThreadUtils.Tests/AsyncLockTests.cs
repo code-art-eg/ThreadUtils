@@ -165,7 +165,10 @@ public class AsyncLockTests
         var l1 = await lck.LockAsync();
         await Assert.ThrowsAsync<TimeoutException>(() =>
         {
-            using(lck.Lock(TimeSpan.FromMilliseconds(100)));
+            using (lck.Lock(TimeSpan.FromMilliseconds(100)))
+            {
+                
+            }
             return Task.CompletedTask;
         });
         l1.Dispose();
@@ -181,6 +184,9 @@ public class AsyncLockTests
             await Task.Delay(50);
             l1.Dispose();
         });
-        using(lck.Lock(TimeSpan.FromMilliseconds(100)));
+        using (lck.Lock(TimeSpan.FromMilliseconds(100)))
+        {
+            
+        }
     }
 }
